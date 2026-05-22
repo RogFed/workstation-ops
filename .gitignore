@@ -1,0 +1,4 @@
+logs/
+cache/
+reports/
+*.log
