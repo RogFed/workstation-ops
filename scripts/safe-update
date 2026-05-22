@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# ----------------------------------------
+# CONFIG
+# ----------------------------------------
+
+TIMESTAMP=$(date +"%Y-%m-%d-%H%M")
+LOG_DIR="$HOME/.local/share/safe-update/logs"
+LOG_FILE="$LOG_DIR/update-$TIMESTAMP.log"
+
+SNAPSHOT_NAME="pre-update-$TIMESTAMP"
+
+CRITICAL_PATTERNS=(
+    "linux"
+    "nvidia"
+    "glibc"
+)
+
+HIGH_PATTERNS=(
+    "mesa"
+    "systemd"
+)
+
+MEDIUM_PATTERNS=(
+    "plasma"
+)
+
+# ----------------------------------------
+# FUNCTIONS
+# ----------------------------------------
+
+log() {
+    echo "$1" | tee -a "$LOG_FILE"
+}
+
+section() {
+    echo
+    log "========================================"
+    log "$1"
+    log "========================================"
+}
+
+detect_updates() {
+    paru -Qu || true
+}
+
+classify_package() {
+    local pkg="$1"
+
+    for pattern in "${CRITICAL_PATTERNS[@]}"; do
+        if [[ "$pkg" == *"$pattern"* ]]; then
+            echo "CRITICAL"
+            return
+        fi
+    done
+
+    for pattern in "${HIGH_PATTERNS[@]}"; do
+        if [[ "$pkg" == *"$pattern"* ]]; then
+            echo "HIGH"
+            return
+        fi
+    done
+
+    for pattern in "${MEDIUM_PATTERNS[@]}"; do
+        if [[ "$pkg" == *"$pattern"* ]]; then
+            echo "MEDIUM"
+            return
+        fi
+    done
+
+    echo "LOW"
+}
+
+create_snapshot() {
+    section "Creating Btrfs Snapshot"
+
+    sudo snapper create \
+        --description "$SNAPSHOT_NAME"
+
+    log "Snapshot created: $SNAPSHOT_NAME"
+}
+
+run_updates() {
+    section "Running Updates"
+
+    paru -Syu
+}
+
+reboot_check() {
+    section "Reboot Check"
+
+    if grep -E "linux|nvidia|systemd" "$LOG_FILE" > /dev/null 2>&1; then
+        log "⚠ Reboot recommended"
+        notify-send "safe-update" "Reboot recommended after updates"
+    else
+        log "No reboot required"
+    fi
+}
+
+# ----------------------------------------
+# MAIN
+# ----------------------------------------
+
+mkdir -p "$LOG_DIR"
+
+section "Safe Update Started"
+
+UPDATES=$(detect_updates)
+
+if [[ -z "$UPDATES" ]]; then
+    log "System already up to date."
+    exit 0
+fi
+
+section "Pending Updates"
+
+echo "$UPDATES" | tee -a "$LOG_FILE"
+
+section "Risk Analysis"
+
+CRITICAL_FOUND=0
+
+while read -r line; do
+    PKG=$(echo "$line" | awk '{print $1}')
+    RISK=$(classify_package "$PKG")
+
+    log "$PKG -> $RISK"
+
+    if [[ "$RISK" == "CRITICAL" ]]; then
+        CRITICAL_FOUND=1
+    fi
+
+done <<< "$UPDATES"
+
+echo
+
+if [[ "$CRITICAL_FOUND" -eq 1 ]]; then
+    echo "⚠ Critical system updates detected."
+    echo "Review recommended before continuing."
+    notify-send "safe-update" "Critical updates detected"
+fi
+
+echo
+read -rp "Proceed with update? [y/N]: " CONFIRM
+
+if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    log "Update cancelled by user."
+    exit 0
+fi
+
+create_snapshot
+
+run_updates
+
+reboot_check
+
+section "Safe Update Complete"
