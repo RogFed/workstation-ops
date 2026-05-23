@@ -161,7 +161,7 @@ Current report fields include:
 * `hostname`
 * `kernel_version`
 * `bootloader`
-* `snapshot.created`, `snapshot.name`, `snapshot.id`
+* `snapshot.created`, `snapshot.name`, `snapshot.id` (optional; `null` when Snapper does not expose a parsable snapshot ID)
 * `updates.critical`, `updates.high`, `updates.medium`, `updates.low`
 * `reboot_required`
 * `update_result`

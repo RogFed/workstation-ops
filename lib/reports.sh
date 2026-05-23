@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+REPORT_ERROR_MESSAGE=""
+
+set_report_error() {
+    REPORT_ERROR_MESSAGE="$1"
+    printf '%s\n' "ERROR: $1" >&2
+}
+
 json_array_from_args() {
     if [[ "$#" -eq 0 ]]; then
         printf '[]\n'
@@ -39,7 +46,7 @@ generate_report() {
     fi
 
     if ! have_command jq; then
-        printf '%s\n' "ERROR: Structured reports require jq" >&2
+        set_report_error "Structured reports require jq"
         return 1
     fi
 
@@ -106,11 +113,11 @@ generate_report() {
 
 validate_report() {
     if ! have_command jq; then
-        printf '%s\n' "ERROR: Structured reports require jq" >&2
+        set_report_error "Structured reports require jq"
         return 1
     fi
 
-    jq -e '
+    if ! jq -e '
         (.version | type == "string") and
         (.timestamp | type == "string") and
         (.hostname | type == "string") and
@@ -133,7 +140,10 @@ validate_report() {
         (.advisory_flags.cachyos_news_detected | type == "boolean") and
         (.log_file | type == "string") and
         (.report_path | type == "string")
-    ' "$1" > /dev/null
+    ' "$1" > /dev/null; then
+        set_report_error "Generated report failed validation: $1"
+        return 1
+    fi
 }
 
 save_report() {
@@ -149,7 +159,7 @@ save_report() {
     mkdir -p "$report_dir"
 
     if [[ -e "$REPORT_FILE" ]]; then
-        printf '%s\n' "ERROR: Refusing to overwrite existing report: $REPORT_FILE" >&2
+        set_report_error "Refusing to overwrite existing report: $REPORT_FILE"
         return 1
     fi
 
@@ -157,6 +167,7 @@ save_report() {
     chmod 600 "$tmp_report_file"
 
     if ! printf '%s\n' "$report_content" > "$tmp_report_file"; then
+        set_report_error "Failed to stage structured report: $REPORT_FILE"
         rm -f "$tmp_report_file"
         return 1
     fi
@@ -176,7 +187,12 @@ write_report() {
         return 0
     fi
 
+    REPORT_ERROR_MESSAGE=""
+
     if ! report_content=$(generate_report "$@"); then
+        if [[ -z "$REPORT_ERROR_MESSAGE" ]]; then
+            set_report_error "Failed to generate structured report"
+        fi
         return 1
     fi
 

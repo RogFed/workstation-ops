@@ -55,6 +55,9 @@ printf 'snapper %s\n' "$*" >> "$MOCK_CALLS_DIR/commands.log"
 if [[ "${MOCK_SNAPPER_FAIL:-false}" == "true" ]]; then
     exit 4
 fi
+if [[ -n "${MOCK_SNAPPER_OUTPUT:-}" ]]; then
+    printf '%s\n' "$MOCK_SNAPPER_OUTPUT"
+fi
 EOF
 
 cat > "$MOCK_PATH/notify-send" <<'EOF'
@@ -88,6 +91,7 @@ run_safe_update() {
     MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
     MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
@@ -117,6 +121,7 @@ run_safe_update_via_symlink() {
     MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
     MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
@@ -146,6 +151,7 @@ run_safe_update_via_path() {
     MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
     MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$path_dir:$MOCK_PATH:$PATH" \
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
@@ -172,6 +178,7 @@ run_safe_update_expect_failure() {
     MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
     MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
@@ -231,7 +238,7 @@ assert_file_contains "$CALLS_DIR/commands.log" 'notify-send safe-update Critical
 
 run_safe_update "$SUCCESS_UPDATES" "y" "2026-05-22-2132"
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.1" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
-assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.update_result == "success" and .reboot_required == true and .snapshot.created == true and .snapshot.name == "pre-update-2026-05-22-2132"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.update_result == "success" and .reboot_required == true and .snapshot.created == true and .snapshot.name == "pre-update-2026-05-22-2132" and .snapshot.id == "42"'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.updates.critical == ["linux-cachyos"] and .updates.high == ["pipewire"]'
 assert_file_contains "$CALLS_DIR/commands.log" 'snapper create --description pre-update-2026-05-22-2132'
 assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'

@@ -12,7 +12,7 @@ log() {
 }
 
 section() {
-    printf '\n' | tee -a "$LOG_FILE" > /dev/null
+    printf '\n' | tee -a "$LOG_FILE"
     log "========================================"
     log "$1"
     log "========================================"

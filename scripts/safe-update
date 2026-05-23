@@ -29,6 +29,9 @@ source "$REPO_ROOT/lib/reports.sh"
 
 safe_write_report() {
     if ! write_report "$@"; then
+        if [[ -n "${REPORT_ERROR_MESSAGE:-}" ]]; then
+            error "$REPORT_ERROR_MESSAGE"
+        fi
         warn "Structured report write failed: $REPORT_FILE"
     fi
 }
