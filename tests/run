@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+
+if [[ "$#" -gt 0 ]]; then
+    TESTS=("$@")
+else
+    mapfile -t TESTS < <(find "$REPO_ROOT/tests" -type f -name '*_spec.sh' | sort)
+fi
+
+PASS_COUNT=0
+
+for test_script in "${TESTS[@]}"; do
+    printf '==> %s\n' "${test_script#$REPO_ROOT/}"
+    bash "$test_script"
+    PASS_COUNT=$((PASS_COUNT + 1))
+done
+
+printf 'PASS: %s test file(s)\n' "$PASS_COUNT"

@@ -48,6 +48,14 @@ You **must** update the project's documentation in sync with the codebase. To do
 
 Before conducting any Git operations that interact with the remote repository (e.g., `git push`, `git pull`, `git fetch`), you **must** verify that your SSH credentials are authenticated. To do this, refer to and follow the instructions in [git-auth-skill](file:///home/rogeliodelgado/Projects/workstation-ops/.agent/skills/git-auth/SKILL.md).
 
+After implementation is complete and the user explicitly approves the work:
+1. Push the feature branch to the remote repository.
+2. Open a pull request from the feature branch into `main`.
+3. After each push to an open PR branch, review the Copilot PR feedback triggered by the synchronize event and apply fixes if needed.
+4. Resolve Copilot-authored review threads after the fixes are pushed or the thread is outdated; leave user-authored comments for the original commenter to resolve.
+5. Update the project version for the release.
+6. Create the release tag for the new version.
+
 ---
 
 ## 🧪 Verification & Testing
@@ -57,4 +65,3 @@ Before declaring your task complete:
 2. Run dry-runs or simulated updates if possible.
 3. Verify that any log directories required by the script are properly created.
 4. Verify that formatting in `README.md` and other markdown files is flawless.
-

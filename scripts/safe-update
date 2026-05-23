@@ -2,158 +2,185 @@
 
 set -euo pipefail
 
-# ----------------------------------------
-# CONFIG
-# ----------------------------------------
+SOURCE_PATH="${BASH_SOURCE[0]}"
 
-TIMESTAMP=$(date +"%Y-%m-%d-%H%M")
-LOG_DIR="$HOME/.local/share/safe-update/logs"
-LOG_FILE="$LOG_DIR/update-$TIMESTAMP.log"
+if [[ "$SOURCE_PATH" != */* ]]; then
+    SOURCE_PATH=$(command -v -- "$SOURCE_PATH")
+fi
 
-SNAPSHOT_NAME="pre-update-$TIMESTAMP"
+while [[ -L "$SOURCE_PATH" ]]; do
+    SCRIPT_DIR=$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)
+    SOURCE_PATH=$(readlink "$SOURCE_PATH")
+    if [[ "$SOURCE_PATH" != /* ]]; then
+        SOURCE_PATH="$SCRIPT_DIR/$SOURCE_PATH"
+    fi
+done
 
-CRITICAL_PATTERNS=(
-    "linux"
-    "nvidia"
-    "glibc"
-)
+SCRIPT_DIR=$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-HIGH_PATTERNS=(
-    "mesa"
-    "systemd"
-)
+source "$REPO_ROOT/lib/utils.sh"
+source "$REPO_ROOT/lib/config.sh"
+source "$REPO_ROOT/lib/logging.sh"
+source "$REPO_ROOT/lib/notifications.sh"
+source "$REPO_ROOT/lib/snapshots.sh"
+source "$REPO_ROOT/lib/risk.sh"
+source "$REPO_ROOT/lib/reports.sh"
 
-MEDIUM_PATTERNS=(
-    "plasma"
-)
-
-# ----------------------------------------
-# FUNCTIONS
-# ----------------------------------------
-
-log() {
-    echo "$1" | tee -a "$LOG_FILE"
+safe_write_report() {
+    if ! write_report "$@"; then
+        warn "Structured report write failed: $REPORT_FILE"
+    fi
 }
 
-section() {
+main() {
+    init_config "$REPO_ROOT"
+    ensure_runtime_dirs
+    init_logging
+
+    section "Safe Update Started"
+
+    verify_update_detection_prereqs
+
+    local updates
+    if ! updates=$(detect_updates); then
+        safe_write_report "detect-failed" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    if [[ -z "$updates" ]]; then
+        log "System already up to date."
+        safe_write_report "no-updates" "" "false"
+        exit 0
+    fi
+
+    section "Pending Updates"
+    printf '%s\n' "$updates" | tee -a "$LOG_FILE"
+
+    section "Risk Analysis"
+    analyze_updates "$updates"
+    print_risk_summary
+
+    if risk_bucket_has_entries "CRITICAL"; then
+        warn "Critical system updates detected."
+        log "Review recommended before continuing."
+        notify_if_enabled "safe-update" "Critical updates detected"
+    fi
+
     echo
-    log "========================================"
-    log "$1"
-    log "========================================"
+    if ! read -rp "Proceed with update? [y/N]: " CONFIRM; then
+        error "Confirmation prompt failed. Run safe-update from an interactive terminal."
+        safe_write_report "prompt-failed" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    if ! is_yes "$CONFIRM"; then
+        log "Update cancelled by user."
+        safe_write_report "cancelled" "" "$REBOOT_REQUIRED"
+        exit 0
+    fi
+
+    verify_update_execution_prereqs
+
+    if ! create_snapshot; then
+        safe_write_report "snapshot-failed" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    if ! run_updates; then
+        safe_write_report "update-failed" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    reboot_check
+    safe_write_report "success" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
+
+    section "Safe Update Complete"
 }
 
 detect_updates() {
-    paru -Qu || true
-}
+    local output
+    local error_output
+    local status=0
+    local stdout_file
+    local stderr_file
 
-classify_package() {
-    local pkg="$1"
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
 
-    for pattern in "${CRITICAL_PATTERNS[@]}"; do
-        if [[ "$pkg" == *"$pattern"* ]]; then
-            echo "CRITICAL"
-            return
-        fi
-    done
+    if "$PARU_BIN" -Qu >"$stdout_file" 2>"$stderr_file"; then
+        status=0
+    else
+        status=$?
+    fi
 
-    for pattern in "${HIGH_PATTERNS[@]}"; do
-        if [[ "$pkg" == *"$pattern"* ]]; then
-            echo "HIGH"
-            return
-        fi
-    done
+    output=$(cat "$stdout_file")
+    error_output=$(cat "$stderr_file")
+    rm -f "$stdout_file" "$stderr_file"
 
-    for pattern in "${MEDIUM_PATTERNS[@]}"; do
-        if [[ "$pkg" == *"$pattern"* ]]; then
-            echo "MEDIUM"
-            return
-        fi
-    done
+    if [[ "$status" -eq 0 ]]; then
+        printf '%s\n' "$output"
+        return 0
+    fi
 
-    echo "LOW"
-}
+    if [[ "$status" -eq 1 && -z "$output" && -z "$error_output" ]]; then
+        return 0
+    fi
 
-create_snapshot() {
-    section "Creating Btrfs Snapshot"
-
-    sudo snapper create \
-        --description "$SNAPSHOT_NAME"
-
-    log "Snapshot created: $SNAPSHOT_NAME"
+    error "Failed to query pending updates with $PARU_BIN -Qu"
+    if [[ -n "$error_output" ]]; then
+        printf '%s\n' "$error_output" | tee -a "$LOG_FILE" >&2
+    fi
+    if [[ -n "$output" ]]; then
+        printf '%s\n' "$output" | tee -a "$LOG_FILE" >&2
+    fi
+    return 1
 }
 
 run_updates() {
     section "Running Updates"
+    "$PARU_BIN" -Syu
+}
 
-    paru -Syu
+verify_update_detection_prereqs() {
+    if ! have_command "$PARU_BIN"; then
+        error "Missing required command: $PARU_BIN"
+        safe_write_report "missing-prereqs" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    if bool_is_true "$ENABLE_NOTIFICATIONS" && ! have_command "$NOTIFY_SEND_BIN"; then
+        log "Notification support unavailable: $NOTIFY_SEND_BIN not found"
+    fi
+}
+
+verify_update_execution_prereqs() {
+    local missing=()
+
+    if ! have_command "$SUDO_BIN"; then
+        missing+=("$SUDO_BIN")
+    fi
+
+    if ! have_command "$SNAPPER_BIN"; then
+        missing+=("$SNAPPER_BIN")
+    fi
+
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+        error "Missing required command(s) for update execution: ${missing[*]}"
+        safe_write_report "missing-prereqs" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
 }
 
 reboot_check() {
     section "Reboot Check"
 
-    if grep -E "linux|nvidia|systemd" "$LOG_FILE" > /dev/null 2>&1; then
-        log "⚠ Reboot recommended"
-        notify-send "safe-update" "Reboot recommended after updates"
+    if [[ "$REBOOT_REQUIRED" == "true" ]]; then
+        warn "Reboot recommended"
+        notify_if_enabled "safe-update" "Reboot recommended after updates"
     else
         log "No reboot required"
     fi
 }
 
-# ----------------------------------------
-# MAIN
-# ----------------------------------------
-
-mkdir -p "$LOG_DIR"
-
-section "Safe Update Started"
-
-UPDATES=$(detect_updates)
-
-if [[ -z "$UPDATES" ]]; then
-    log "System already up to date."
-    exit 0
-fi
-
-section "Pending Updates"
-
-echo "$UPDATES" | tee -a "$LOG_FILE"
-
-section "Risk Analysis"
-
-CRITICAL_FOUND=0
-
-while read -r line; do
-    PKG=$(echo "$line" | awk '{print $1}')
-    RISK=$(classify_package "$PKG")
-
-    log "$PKG -> $RISK"
-
-    if [[ "$RISK" == "CRITICAL" ]]; then
-        CRITICAL_FOUND=1
-    fi
-
-done <<< "$UPDATES"
-
-echo
-
-if [[ "$CRITICAL_FOUND" -eq 1 ]]; then
-    echo "⚠ Critical system updates detected."
-    echo "Review recommended before continuing."
-    notify-send "safe-update" "Critical updates detected"
-fi
-
-echo
-read -rp "Proceed with update? [y/N]: " CONFIRM
-
-if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-    log "Update cancelled by user."
-    exit 0
-fi
-
-create_snapshot
-
-run_updates
-
-reboot_check
-
-section "Safe Update Complete"
+main "$@"
