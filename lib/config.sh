@@ -43,6 +43,7 @@ init_config() {
     SNAPPER_BIN="${SNAPPER_BIN:-snapper}"
 
     if [[ -f "$CONFIG_FILE" ]]; then
+        # The config file is sourced as shell code, so it must come from a trusted location.
         # shellcheck disable=SC1090
         source "$CONFIG_FILE"
     fi

@@ -2,6 +2,7 @@
 
 init_logging() {
     : > "$LOG_FILE"
+    chmod 600 "$LOG_FILE"
 }
 
 log() {

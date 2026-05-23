@@ -67,6 +67,10 @@ EOF
 
 chmod +x "$MOCK_PATH/paru" "$MOCK_PATH/sudo" "$MOCK_PATH/snapper" "$MOCK_PATH/notify-send"
 
+CANCELLED_UPDATES=$'linux-cachyos 1 -> 2\nfirefox 1 -> 2'
+SUCCESS_UPDATES=$'linux-cachyos 1 -> 2\npipewire 1 -> 2'
+CRITICAL_ONLY_UPDATES=$'linux-cachyos 1 -> 2'
+
 run_safe_update() {
     local updates="$1"
     local input_text="$2"
@@ -163,11 +167,11 @@ run_safe_update_expect_failure() {
 run_safe_update "" "" "2026-05-22-2130"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2130.json" '"status": "no-updates"'
 
-run_safe_update $'linux-cachyos 1 -> 2\nfirefox 1 -> 2' "n" "2026-05-22-2131"
+run_safe_update "$CANCELLED_UPDATES" "n" "2026-05-22-2131"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2131.json" '"status": "cancelled"'
 assert_file_contains "$CALLS_DIR/commands.log" 'notify-send safe-update Critical updates detected'
 
-run_safe_update $'linux-cachyos 1 -> 2\npipewire 1 -> 2' "y" "2026-05-22-2132"
+run_safe_update "$SUCCESS_UPDATES" "y" "2026-05-22-2132"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2132.json" '"status": "success"'
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2132.json" '"reboot_required": true'
 assert_file_contains "$CALLS_DIR/commands.log" 'snapper create --description pre-update-2026-05-22-2132'
@@ -182,7 +186,7 @@ assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2124.json" '"status": 
 MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-2126"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2126.json" '"status": "no-updates"'
 
-MOCK_NOTIFY_SEND_FAIL=true run_safe_update $'linux-cachyos 1 -> 2' "n" "2026-05-22-2133"
+MOCK_NOTIFY_SEND_FAIL=true run_safe_update "$CRITICAL_ONLY_UPDATES" "n" "2026-05-22-2133"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2133.log" 'Notification skipped: notify-send failed'
 
 PARU_BIN=missing-paru run_safe_update_expect_failure "" "" "2026-05-22-2134"
@@ -193,8 +197,8 @@ MOCK_PARU_ERROR='database unavailable' run_safe_update_expect_failure "" "" "202
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2135.log" 'ERROR: Failed to query pending updates with paru -Qu'
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2135.json" '"status": "detect-failed"'
 
-MOCK_SNAPPER_FAIL=true run_safe_update_expect_failure $'linux-cachyos 1 -> 2' "y" "2026-05-22-2136"
+MOCK_SNAPPER_FAIL=true run_safe_update_expect_failure "$CRITICAL_ONLY_UPDATES" "y" "2026-05-22-2136"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2136.json" '"status": "snapshot-failed"'
 
-MOCK_PARU_UPDATE_FAIL=true run_safe_update_expect_failure $'linux-cachyos 1 -> 2' "y" "2026-05-22-2137"
+MOCK_PARU_UPDATE_FAIL=true run_safe_update_expect_failure "$CRITICAL_ONLY_UPDATES" "y" "2026-05-22-2137"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2137.json" '"status": "update-failed"'

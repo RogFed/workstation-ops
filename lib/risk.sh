@@ -78,7 +78,9 @@ package_matches_any() {
 }
 
 package_from_update_line() {
-    awk '{print $1}' <<< "$1"
+    local pkg
+    IFS=' ' read -r pkg _ <<< "$1"
+    printf '%s\n' "$pkg"
 }
 
 track_package_risk() {

@@ -87,6 +87,8 @@ Defaults live in:
 config/safe-update.conf
 ```
 
+The config file is sourced by Bash, so it should contain only trusted shell assignments from a trusted local source.
+
 Current runtime settings include:
 
 ```bash
