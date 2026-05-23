@@ -44,6 +44,12 @@ assert_json_expression "$REPORT_FILE" '.updates.low == ["warp-terminal-bin"]'
 assert_json_expression "$REPORT_FILE" '.package_risk_metadata | length == 4'
 assert_json_expression "$REPORT_FILE" '.package_risk_metadata[] | select(.name == "mesa" and .severity == "HIGH" and .graphics_impact == true and .core_system_impact == true)'
 assert_json_expression "$REPORT_FILE" '.package_risk_metadata[] | select(.name == "warp-terminal-bin" and .aur_package == true and .userland_only == true)'
+PACKAGE_METADATA_FILE="$TEST_DIR/package-risk-metadata.json"
+package_risk_metadata_json > "$PACKAGE_METADATA_FILE"
+assert_json_expression "$PACKAGE_METADATA_FILE" '.[0].name == "linux-cachyos"'
+assert_json_expression "$PACKAGE_METADATA_FILE" '.[0].severity == "CRITICAL"'
+assert_json_expression "$PACKAGE_METADATA_FILE" '.[1].name == "mesa"'
+assert_json_expression "$PACKAGE_METADATA_FILE" 'all(.[]; has("name") and has("severity") and has("reboot_required") and has("boot_impact") and has("graphics_impact") and has("core_system_impact") and has("userland_only") and has("aur_package"))'
 assert_json_expression "$REPORT_FILE" '.risk_summary.critical_package_count == 1'
 assert_json_expression "$REPORT_FILE" '.risk_summary.high_package_count == 1'
 assert_json_expression "$REPORT_FILE" '.risk_summary.medium_package_count == 1'

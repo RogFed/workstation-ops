@@ -60,32 +60,32 @@ package_risk_metadata_json() {
         return 0
     fi
 
-    local package_json=()
     local pkg
-    for pkg in "${RISK_PACKAGES[@]}"; do
-        package_json+=("$(jq -cn \
-            --arg name "$pkg" \
-            --arg severity "${PACKAGE_SEVERITY[$pkg]:-LOW}" \
-            --argjson reboot_required "$(json_bool "${PACKAGE_REBOOT_REQUIRED[$pkg]:-false}")" \
-            --argjson boot_impact "$(json_bool "${PACKAGE_BOOT_IMPACT[$pkg]:-false}")" \
-            --argjson graphics_impact "$(json_bool "${PACKAGE_GRAPHICS_IMPACT[$pkg]:-false}")" \
-            --argjson core_system_impact "$(json_bool "${PACKAGE_CORE_SYSTEM_IMPACT[$pkg]:-false}")" \
-            --argjson userland_only "$(json_bool "${PACKAGE_USERLAND_ONLY[$pkg]:-false}")" \
-            --argjson aur_package "$(json_bool "${PACKAGE_AUR[$pkg]:-false}")" \
-            '{
-                name: $name,
-                severity: $severity,
-                reboot_required: $reboot_required,
-                boot_impact: $boot_impact,
-                graphics_impact: $graphics_impact,
-                core_system_impact: $core_system_impact,
-                userland_only: $userland_only,
-                aur_package: $aur_package
-            }')"
-        )
-    done
-
-    printf '%s\n' "${package_json[@]}" | jq -s '.'
+    {
+        for pkg in "${RISK_PACKAGES[@]}"; do
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+                "$pkg" \
+                "${PACKAGE_SEVERITY[$pkg]:-LOW}" \
+                "${PACKAGE_REBOOT_REQUIRED[$pkg]:-false}" \
+                "${PACKAGE_BOOT_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_GRAPHICS_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_CORE_SYSTEM_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_USERLAND_ONLY[$pkg]:-false}" \
+                "${PACKAGE_AUR[$pkg]:-false}"
+        done
+    } | jq -Rsc '
+        split("\n")[:-1]
+        | map(split("\t"))
+        | map({
+            name: .[0],
+            severity: .[1],
+            reboot_required: (.[2] == "true"),
+            boot_impact: (.[3] == "true"),
+            graphics_impact: (.[4] == "true"),
+            core_system_impact: (.[5] == "true"),
+            userland_only: (.[6] == "true"),
+            aur_package: (.[7] == "true")
+        })'
 }
 
 risk_summary_json() {
