@@ -54,3 +54,11 @@ json_array() {
     done
     printf ']'
 }
+
+json_bool() {
+    if bool_is_true "${1:-false}"; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}

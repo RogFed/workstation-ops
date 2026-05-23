@@ -20,9 +20,9 @@ write_report() {
         printf '  "high_updates": %s,\n' "$(json_array "${HIGH_PACKAGES[@]}")"
         printf '  "medium_updates": %s,\n' "$(json_array "${MEDIUM_PACKAGES[@]}")"
         printf '  "low_updates": %s,\n' "$(json_array "${LOW_PACKAGES[@]}")"
-        printf '  "reboot_required": %s,\n' "$reboot_required"
-        printf '  "arch_news_detected": %s,\n' "${ARCH_NEWS_DETECTED,,}"
-        printf '  "cachyos_news_detected": %s,\n' "${CACHYOS_NEWS_DETECTED,,}"
+        printf '  "reboot_required": %s,\n' "$(json_bool "$reboot_required")"
+        printf '  "arch_news_detected": %s,\n' "$(json_bool "$ARCH_NEWS_DETECTED")"
+        printf '  "cachyos_news_detected": %s,\n' "$(json_bool "$CACHYOS_NEWS_DETECTED")"
         printf '  "report_path": "%s"\n' "$(json_escape "$REPORT_FILE")"
         printf '}\n'
     } > "$REPORT_FILE"

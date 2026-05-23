@@ -81,21 +81,40 @@ main() {
 
 detect_updates() {
     local output
+    local error_output
     local status=0
+    local stdout_file
+    local stderr_file
 
-    output=$("$PARU_BIN" -Qu 2>&1) || status=$?
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    if "$PARU_BIN" -Qu >"$stdout_file" 2>"$stderr_file"; then
+        status=0
+    else
+        status=$?
+    fi
+
+    output=$(cat "$stdout_file")
+    error_output=$(cat "$stderr_file")
+    rm -f "$stdout_file" "$stderr_file"
 
     if [[ "$status" -eq 0 ]]; then
         printf '%s\n' "$output"
         return 0
     fi
 
-    if [[ -z "$output" ]]; then
+    if [[ "$status" -eq 1 && -z "$output" && -z "$error_output" ]]; then
         return 0
     fi
 
     error "Failed to query pending updates with paru -Qu"
-    printf '%s\n' "$output" | tee -a "$LOG_FILE" >&2
+    if [[ -n "$error_output" ]]; then
+        printf '%s\n' "$error_output" | tee -a "$LOG_FILE" >&2
+    fi
+    if [[ -n "$output" ]]; then
+        printf '%s\n' "$output" | tee -a "$LOG_FILE" >&2
+    fi
     return 1
 }
 
@@ -107,6 +126,7 @@ run_updates() {
 verify_update_detection_prereqs() {
     if ! have_command "$PARU_BIN"; then
         error "Missing required command: $PARU_BIN"
+        write_report "missing-prereqs" "" "$REBOOT_REQUIRED"
         exit 1
     fi
 
