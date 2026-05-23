@@ -29,6 +29,9 @@ source "$REPO_ROOT/lib/reports.sh"
 
 safe_write_report() {
     if ! write_report "$@"; then
+        if [[ -n "${REPORT_ERROR_MESSAGE:-}" ]]; then
+            error "$REPORT_ERROR_MESSAGE"
+        fi
         warn "Structured report write failed: $REPORT_FILE"
     fi
 }
@@ -37,6 +40,8 @@ main() {
     init_config "$REPO_ROOT"
     ensure_runtime_dirs
     init_logging
+    RUN_START_EPOCH="${SAFE_UPDATE_START_EPOCH:-$(current_epoch)}"
+    reset_snapshot_state
 
     section "Safe Update Started"
 
@@ -44,13 +49,13 @@ main() {
 
     local updates
     if ! updates=$(detect_updates); then
-        safe_write_report "detect-failed" "" "$REBOOT_REQUIRED"
+        safe_write_report "detect-failed" "" "false" "$REBOOT_REQUIRED"
         exit 1
     fi
 
     if [[ -z "$updates" ]]; then
         log "System already up to date."
-        safe_write_report "no-updates" "" "false"
+        safe_write_report "no-updates" "" "false" "false"
         exit 0
     fi
 
@@ -70,30 +75,30 @@ main() {
     echo
     if ! read -rp "Proceed with update? [y/N]: " CONFIRM; then
         error "Confirmation prompt failed. Run safe-update from an interactive terminal."
-        safe_write_report "prompt-failed" "" "$REBOOT_REQUIRED"
+        safe_write_report "prompt-failed" "" "false" "$REBOOT_REQUIRED"
         exit 1
     fi
 
     if ! is_yes "$CONFIRM"; then
         log "Update cancelled by user."
-        safe_write_report "cancelled" "" "$REBOOT_REQUIRED"
+        safe_write_report "cancelled" "" "false" "$REBOOT_REQUIRED"
         exit 0
     fi
 
     verify_update_execution_prereqs
 
     if ! create_snapshot; then
-        safe_write_report "snapshot-failed" "" "$REBOOT_REQUIRED"
+        safe_write_report "snapshot-failed" "$SNAPSHOT_NAME" "false" "$REBOOT_REQUIRED"
         exit 1
     fi
 
     if ! run_updates; then
-        safe_write_report "update-failed" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
+        safe_write_report "update-failed" "$SNAPSHOT_NAME" "$SNAPSHOT_CREATED" "$REBOOT_REQUIRED"
         exit 1
     fi
 
     reboot_check
-    safe_write_report "success" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
+    safe_write_report "success" "$SNAPSHOT_NAME" "$SNAPSHOT_CREATED" "$REBOOT_REQUIRED"
 
     section "Safe Update Complete"
 }
@@ -145,12 +150,17 @@ run_updates() {
 verify_update_detection_prereqs() {
     if ! have_command "$PARU_BIN"; then
         error "Missing required command: $PARU_BIN"
-        safe_write_report "missing-prereqs" "" "$REBOOT_REQUIRED"
+        safe_write_report "missing-prereqs" "" "false" "$REBOOT_REQUIRED"
         exit 1
     fi
 
     if bool_is_true "$ENABLE_NOTIFICATIONS" && ! have_command "$NOTIFY_SEND_BIN"; then
         log "Notification support unavailable: $NOTIFY_SEND_BIN not found"
+    fi
+
+    if bool_is_true "$ENABLE_REPORTS" && ! have_command jq; then
+        error "Missing required command for structured reports: jq"
+        exit 1
     fi
 }
 
@@ -167,7 +177,7 @@ verify_update_execution_prereqs() {
 
     if [[ "${#missing[@]}" -gt 0 ]]; then
         error "Missing required command(s) for update execution: ${missing[*]}"
-        safe_write_report "missing-prereqs" "" "$REBOOT_REQUIRED"
+        safe_write_report "missing-prereqs" "" "false" "$REBOOT_REQUIRED"
         exit 1
     fi
 }

@@ -6,20 +6,24 @@ init_logging() {
 }
 
 log() {
-    printf '%s\n' "$1" | tee -a "$LOG_FILE"
+    local timestamp
+    timestamp=$(current_log_timestamp)
+    printf '[%s] %s\n' "$timestamp" "$1" | tee -a "$LOG_FILE"
 }
 
 section() {
-    echo
+    printf '\n' | tee -a "$LOG_FILE"
     log "========================================"
     log "$1"
     log "========================================"
 }
 
 warn() {
-    log "⚠ $1"
+    log "WARN: $1"
 }
 
 error() {
-    printf '%s\n' "ERROR: $1" | tee -a "$LOG_FILE" >&2
+    local timestamp
+    timestamp=$(current_log_timestamp)
+    printf '[%s] ERROR: %s\n' "$timestamp" "$1" | tee -a "$LOG_FILE" >&2
 }
