@@ -55,3 +55,12 @@ validate_report "$TEST_DIR/invalid-report.json"
 invalid_status=$?
 set -e
 assert_eq "1" "$invalid_status" "validate_report should reject incomplete reports"
+
+REPORT_FILE="$TEST_DIR/not-a-directory/report.json"
+printf 'blocking file\n' > "$TEST_DIR/not-a-directory"
+set +e
+write_report "success" "pre-update-2026-05-22T211500" "true" "true"
+write_status=$?
+set -e
+assert_eq "1" "$write_status" "write_report should return a handled failure when the report directory cannot be created"
+assert_eq "Failed to create report directory: $TEST_DIR/not-a-directory" "$REPORT_ERROR_MESSAGE" "write_report should store a useful report directory error"

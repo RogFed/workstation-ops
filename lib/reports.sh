@@ -155,15 +155,26 @@ save_report() {
     fi
 
     report_dir="$(dirname "$REPORT_FILE")"
-    mkdir -p "$report_dir"
+    if ! mkdir -p "$report_dir"; then
+        set_report_error "Failed to create report directory: $report_dir"
+        return 1
+    fi
 
     if [[ -e "$REPORT_FILE" ]]; then
         set_report_error "Refusing to overwrite existing report: $REPORT_FILE"
         return 1
     fi
 
-    tmp_report_file=$(mktemp "$report_dir/.report-XXXXXX.tmp")
-    chmod 600 "$tmp_report_file"
+    if ! tmp_report_file=$(mktemp "$report_dir/.report-XXXXXX.tmp"); then
+        set_report_error "Failed to create temporary report file in: $report_dir"
+        return 1
+    fi
+
+    if ! chmod 600 "$tmp_report_file"; then
+        set_report_error "Failed to secure temporary report file: $tmp_report_file"
+        rm -f "$tmp_report_file"
+        return 1
+    fi
 
     if ! printf '%s\n' "$report_content" > "$tmp_report_file"; then
         set_report_error "Failed to stage structured report: $REPORT_FILE"
@@ -176,7 +187,11 @@ save_report() {
         return 1
     fi
 
-    mv "$tmp_report_file" "$REPORT_FILE"
+    if ! mv "$tmp_report_file" "$REPORT_FILE"; then
+        set_report_error "Failed to persist structured report: $REPORT_FILE"
+        rm -f "$tmp_report_file"
+        return 1
+    fi
 }
 
 write_report() {
