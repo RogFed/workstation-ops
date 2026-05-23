@@ -147,7 +147,7 @@ Runtime-generated data lives outside the repository under:
 Key outputs:
 
 * **Logs**: `~/.local/share/safe-update/logs/update-YYYY-MM-DDTHHMMSS.log`
-* **Reports**: `~/.local/share/safe-update/reports/report-YYYY-MM-DDTHHMMSS.json`
+* **Reports**: `~/.local/share/safe-update/reports/report-YYYY-MM-DDTHHMMSS.json` (with an automatic suffix only if a same-second collision occurs)
 * **Snapshots**: `pre-update-YYYY-MM-DDTHHMMSS`
 
 ## 📊 Structured Report Schema

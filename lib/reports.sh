@@ -6,6 +6,37 @@ set_report_error() {
     REPORT_ERROR_MESSAGE="$1"
 }
 
+prepare_report_file() {
+    local report_dir="${REPORT_DIR:-$(dirname "$REPORT_FILE")}"
+    local timestamp="${TIMESTAMP:-}"
+    local default_report_file=""
+    local disambiguator="${BASHPID:-$$}"
+    local candidate=""
+    local attempt=1
+
+    if [[ -n "$timestamp" ]]; then
+        default_report_file="$report_dir/report-$timestamp.json"
+        candidate="$report_dir/report-$timestamp-$disambiguator.json"
+    fi
+
+    if [[ ! -e "$REPORT_FILE" ]]; then
+        return 0
+    fi
+
+    if [[ "$REPORT_FILE" != "$default_report_file" ]]; then
+        set_report_error "Refusing to overwrite existing report: $REPORT_FILE"
+        return 1
+    fi
+
+    while [[ -e "$candidate" ]]; do
+        candidate="$report_dir/report-$timestamp-$disambiguator-$attempt.json"
+        attempt=$((attempt + 1))
+    done
+
+    REPORT_DIR="$report_dir"
+    REPORT_FILE="$candidate"
+}
+
 json_array_from_args() {
     if [[ "$#" -eq 0 ]]; then
         printf '[]\n'
@@ -112,10 +143,15 @@ generate_report() {
 
 validate_report() {
     local validation_error=""
+    local validation_target="$1"
 
     if ! have_command jq; then
         set_report_error "Structured reports require jq"
         return 1
+    fi
+
+    if [[ -n "${REPORT_DIR:-}" && -n "${REPORT_FILE:-}" && "$1" == "$REPORT_DIR"/.report-* ]]; then
+        validation_target="$REPORT_FILE"
     fi
 
     if ! validation_error=$(jq -e '
@@ -143,9 +179,9 @@ validate_report() {
         (.report_path | type == "string")
     ' "$1" 2>&1 > /dev/null); then
         if [[ -n "$validation_error" ]]; then
-            set_report_error "Generated report failed validation: $1 ($validation_error)"
+            set_report_error "Generated report failed validation: $validation_target ($validation_error)"
         else
-            set_report_error "Generated report failed validation: $1"
+            set_report_error "Generated report failed validation: $validation_target"
         fi
         return 1
     fi
@@ -208,6 +244,10 @@ write_report() {
     fi
 
     REPORT_ERROR_MESSAGE=""
+
+    if ! prepare_report_file; then
+        return 1
+    fi
 
     if ! report_content=$(generate_report "$@"); then
         if [[ -z "$REPORT_ERROR_MESSAGE" ]]; then

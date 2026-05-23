@@ -64,3 +64,16 @@ write_status=$?
 set -e
 assert_eq "1" "$write_status" "write_report should return a handled failure when the report directory cannot be created"
 assert_eq "Failed to create report directory: $TEST_DIR/not-a-directory" "$REPORT_ERROR_MESSAGE" "write_report should store a useful report directory error"
+
+REPORT_DIR="$TEST_DIR/collision-reports"
+TIMESTAMP="2026-05-22T211500"
+REPORT_FILE="$REPORT_DIR/report-2026-05-22T211500.json"
+mkdir -p "$REPORT_DIR"
+printf 'existing report\n' > "$REPORT_FILE"
+set +e
+write_report "success" "pre-update-2026-05-22T211500" "true" "true"
+collision_status=$?
+set -e
+assert_eq "0" "$collision_status" "write_report should disambiguate default report names on collision"
+[[ "$REPORT_FILE" =~ ^$TEST_DIR/collision-reports/report-2026-05-22T211500-[0-9-]+\.json$ ]] || fail "write_report should add a suffix when the default report path collides"
+[[ -f "$REPORT_FILE" ]] || fail "write_report should persist the disambiguated report file"
