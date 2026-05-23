@@ -97,7 +97,7 @@ run_safe_update() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_VERSION="0.2.2" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -127,7 +127,7 @@ run_safe_update_via_symlink() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_VERSION="0.2.2" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -157,7 +157,7 @@ run_safe_update_via_path() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_VERSION="0.2.2" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -184,7 +184,7 @@ run_safe_update_expect_failure() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_VERSION="0.2.2" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -212,7 +212,7 @@ run_safe_update_missing_jq_expect_failure() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_VERSION="0.2.2" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     PATH="$RUNTIME_BIN:$MOCK_PATH" \
@@ -237,11 +237,15 @@ assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2131.json" '.update_
 assert_file_contains "$CALLS_DIR/commands.log" 'notify-send safe-update Critical updates detected'
 
 run_safe_update "$SUCCESS_UPDATES" "y" "2026-05-22-2132"
-assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.1" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.2" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.update_result == "success" and .reboot_required == true and .snapshot.created == true and .snapshot.name == "pre-update-2026-05-22-2132" and .snapshot.id == "42"'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.updates.critical == ["linux-cachyos"] and .updates.high == ["pipewire"]'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.risk_summary.critical_package_count == 1 and .risk_summary.high_package_count == 1 and .risk_summary.graphics_stack_changed == true and .risk_summary.boot_chain_changed == true and .risk_summary.reboot_required == true'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.package_risk_metadata[] | select(.name == "pipewire" and .graphics_impact == true and .severity == "HIGH")'
 assert_file_contains "$CALLS_DIR/commands.log" 'snapper create --description pre-update-2026-05-22-2132'
 assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2132.log" 'Graphics stack updates detected: pipewire'
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2132.log" 'Boot chain updates detected: linux-cachyos'
 
 run_safe_update_via_symlink "" "" "2026-05-22-2125"
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2125.json" '.update_result == "no-updates"'

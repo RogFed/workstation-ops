@@ -4,6 +4,7 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/helpers/testlib.sh"
 source "$REPO_ROOT/lib/utils.sh"
+source "$REPO_ROOT/lib/risk.sh"
 source "$REPO_ROOT/lib/reports.sh"
 
 TEST_DIR=$(make_test_dir)
@@ -15,21 +16,20 @@ LOG_FILE="$TEST_DIR/update.log"
 REPORT_FILE="$TEST_DIR/report.json"
 ARCH_NEWS_DETECTED=yes
 CACHYOS_NEWS_DETECTED=0
-CRITICAL_PACKAGES=("linux-cachyos")
-HIGH_PACKAGES=("pipewire")
-MEDIUM_PACKAGES=("plasma-desktop")
-LOW_PACKAGES=("firefox")
 RUN_START_EPOCH=100
 SAFE_UPDATE_NOW_EPOCH=148
 SAFE_UPDATE_HOSTNAME="cachyos-workstation"
 SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos"
 SAFE_UPDATE_BOOTLOADER="limine"
-SAFE_UPDATE_VERSION="0.2.1"
+SAFE_UPDATE_VERSION="0.2.2"
 SNAPSHOT_ID="42"
+TEST_UPDATES=$'linux-cachyos 1 -> 2\nmesa 1 -> 2\nplasma-desktop 1 -> 2\nwarp-terminal-bin 1 -> 2'
+
+analyze_updates "$TEST_UPDATES"
 
 write_report "success" "pre-update-2026-05-22T211500" "true" "true"
 
-assert_json_expression "$REPORT_FILE" '.version == "0.2.1"'
+assert_json_expression "$REPORT_FILE" '.version == "0.2.2"'
 assert_json_expression "$REPORT_FILE" '.timestamp == "2026-05-22T21:15:00-06:00"'
 assert_json_expression "$REPORT_FILE" '.hostname == "cachyos-workstation"'
 assert_json_expression "$REPORT_FILE" '.kernel_version == "6.15.1-cachyos"'
@@ -38,9 +38,21 @@ assert_json_expression "$REPORT_FILE" '.snapshot.created == true'
 assert_json_expression "$REPORT_FILE" '.snapshot.name == "pre-update-2026-05-22T211500"'
 assert_json_expression "$REPORT_FILE" '.snapshot.id == "42"'
 assert_json_expression "$REPORT_FILE" '.updates.critical == ["linux-cachyos"]'
-assert_json_expression "$REPORT_FILE" '.updates.high == ["pipewire"]'
+assert_json_expression "$REPORT_FILE" '.updates.high == ["mesa"]'
 assert_json_expression "$REPORT_FILE" '.updates.medium == ["plasma-desktop"]'
-assert_json_expression "$REPORT_FILE" '.updates.low == ["firefox"]'
+assert_json_expression "$REPORT_FILE" '.updates.low == ["warp-terminal-bin"]'
+assert_json_expression "$REPORT_FILE" '.package_risk_metadata | length == 4'
+assert_json_expression "$REPORT_FILE" '.package_risk_metadata[] | select(.name == "mesa" and .severity == "HIGH" and .graphics_impact == true and .core_system_impact == true)'
+assert_json_expression "$REPORT_FILE" '.package_risk_metadata[] | select(.name == "warp-terminal-bin" and .aur_package == true and .userland_only == true)'
+assert_json_expression "$REPORT_FILE" '.risk_summary.critical_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.high_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.medium_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.low_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.graphics_stack_changed == true'
+assert_json_expression "$REPORT_FILE" '.risk_summary.boot_chain_changed == true'
+assert_json_expression "$REPORT_FILE" '.risk_summary.core_system_changed == true'
+assert_json_expression "$REPORT_FILE" '.risk_summary.aur_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.reboot_required == true'
 assert_json_expression "$REPORT_FILE" '.reboot_required == true'
 assert_json_expression "$REPORT_FILE" '.update_result == "success"'
 assert_json_expression "$REPORT_FILE" '.duration_seconds == 48'

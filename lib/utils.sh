@@ -147,3 +147,21 @@ json_bool() {
         printf 'false'
     fi
 }
+
+join_by() {
+    local separator="$1"
+    shift || return 0
+
+    if [[ "$#" -eq 0 ]]; then
+        return 0
+    fi
+
+    local first="$1"
+    shift
+    printf '%s' "$first"
+
+    local value
+    for value in "$@"; do
+        printf '%s%s' "$separator" "$value"
+    done
+}
