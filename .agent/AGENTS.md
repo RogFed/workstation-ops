@@ -44,6 +44,12 @@ You **must** update the project's documentation in sync with the codebase. To do
 
 ---
 
+## 🔑 Git Authentication & Operations
+
+Before conducting any Git operations that interact with the remote repository (e.g., `git push`, `git pull`, `git fetch`), you **must** verify that your SSH credentials are authenticated. To do this, refer to and follow the instructions in [git-auth-skill](file:///home/rogeliodelgado/Projects/workstation-ops/.agent/skills/git-auth/SKILL.md).
+
+---
+
 ## 🧪 Verification & Testing
 
 Before declaring your task complete:
@@ -51,3 +57,4 @@ Before declaring your task complete:
 2. Run dry-runs or simulated updates if possible.
 3. Verify that any log directories required by the script are properly created.
 4. Verify that formatting in `README.md` and other markdown files is flawless.
+
