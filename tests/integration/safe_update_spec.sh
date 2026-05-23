@@ -153,8 +153,8 @@ assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'
 run_safe_update_via_symlink "" "" "2026-05-22-2125"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2125.json" '"status": "no-updates"'
 
-MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-21326"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-21326.json" '"status": "no-updates"'
+MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-2126"
+assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2126.json" '"status": "no-updates"'
 
 MOCK_NOTIFY_SEND_FAIL=true run_safe_update $'linux-cachyos 1 -> 2' "n" "2026-05-22-2133"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2133.log" 'Notification skipped: notify-send failed'
