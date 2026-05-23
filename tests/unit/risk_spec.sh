@@ -12,6 +12,7 @@ MIXED_UPDATES=$'linux-cachyos 1 -> 2\nmesa 3 -> 4\nplasma-desktop 1 -> 2\nwarp-t
 
 assert_eq "CRITICAL" "$(classify_package "linux-cachyos")" "linux-cachyos should be critical"
 assert_eq "HIGH" "$(classify_package "mesa")" "mesa should be high risk"
+assert_eq "HIGH" "$(classify_package "linux-firmware")" "linux-firmware should stay high risk rather than being treated as a kernel package"
 assert_eq "MEDIUM" "$(classify_package "plasma-desktop")" "plasma should remain medium risk"
 assert_eq "LOW" "$(classify_package "firefox")" "regular applications should be low risk"
 assert_eq "true" "$(has_boot_impact "linux-cachyos")" "Kernel packages should be marked as boot-impacting"

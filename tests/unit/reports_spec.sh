@@ -68,6 +68,47 @@ invalid_status=$?
 set -e
 assert_eq "1" "$invalid_status" "validate_report should reject incomplete reports"
 
+jq -n '{
+  version: "0.2.2",
+  timestamp: "2026-05-22T21:15:00-06:00",
+  hostname: "cachyos-workstation",
+  kernel_version: "6.15.1-cachyos",
+  bootloader: "limine",
+  snapshot: { created: true, name: "pre-update-2026-05-22T211500", id: "42" },
+  updates: { critical: ["linux-cachyos"], high: ["mesa"], medium: ["plasma-desktop"], low: ["warp-terminal-bin"] },
+  package_risk_metadata: [{
+    severity: "SEVERE",
+    reboot_required: true,
+    boot_impact: true,
+    graphics_impact: false,
+    core_system_impact: true,
+    userland_only: false,
+    aur_package: false
+  }],
+  risk_summary: {
+    critical_package_count: 1,
+    high_package_count: 1,
+    medium_package_count: 1,
+    low_package_count: 1,
+    graphics_stack_changed: true,
+    boot_chain_changed: true,
+    core_system_changed: true,
+    reboot_required: true,
+    aur_package_count: 1
+  },
+  reboot_required: true,
+  update_result: "success",
+  duration_seconds: 48,
+  advisory_flags: { arch_news_detected: true, cachyos_news_detected: false },
+  log_file: "/tmp/update.log",
+  report_path: "/tmp/report.json"
+}' > "$TEST_DIR/invalid-package-risk-report.json"
+set +e
+validate_report "$TEST_DIR/invalid-package-risk-report.json"
+invalid_package_status=$?
+set -e
+assert_eq "1" "$invalid_package_status" "validate_report should reject invalid package risk metadata entries"
+
 REPORT_FILE="$TEST_DIR/not-a-directory/report.json"
 printf 'blocking file\n' > "$TEST_DIR/not-a-directory"
 set +e

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-CRITICAL_PATTERNS=("linux" "linux-cachyos" "nvidia" "glibc" "limine" "amd-ucode" "intel-ucode" "microcode")
+CRITICAL_PATTERNS=("linux-cachyos" "nvidia" "glibc" "limine" "amd-ucode" "intel-ucode" "microcode")
 HIGH_PATTERNS=("mesa" "systemd" "pipewire" "mkinitcpio" "dracut" "linux-firmware" "vulkan-" "lib32-")
 MEDIUM_PATTERNS=("plasma" "wayland" "xorg")
 
-REBOOT_REQUIRED_PATTERNS=("linux" "linux-cachyos" "nvidia" "systemd" "limine" "amd-ucode" "intel-ucode" "microcode" "mkinitcpio" "dracut" "linux-firmware")
-BOOT_IMPACT_PATTERNS=("linux" "linux-cachyos" "limine" "mkinitcpio" "dracut" "systemd" "linux-firmware" "amd-ucode" "intel-ucode" "microcode")
+REBOOT_REQUIRED_PATTERNS=("linux-cachyos" "nvidia" "systemd" "limine" "amd-ucode" "intel-ucode" "microcode" "mkinitcpio" "dracut")
+BOOT_IMPACT_PATTERNS=("linux-cachyos" "limine" "mkinitcpio" "dracut" "systemd" "linux-firmware" "amd-ucode" "intel-ucode" "microcode")
 GRAPHICS_IMPACT_PATTERNS=("mesa" "vulkan-" "nvidia" "lib32-" "wayland" "plasma" "xorg" "pipewire")
-CORE_SYSTEM_PATTERNS=("linux" "linux-cachyos" "glibc" "systemd" "linux-firmware" "mkinitcpio" "dracut" "limine" "amd-ucode" "intel-ucode" "microcode" "mesa" "nvidia" "pipewire")
+CORE_SYSTEM_PATTERNS=("linux-cachyos" "glibc" "systemd" "linux-firmware" "mkinitcpio" "dracut" "limine" "amd-ucode" "intel-ucode" "microcode" "mesa" "nvidia" "pipewire")
 AUR_SUFFIX_PATTERNS=("-git" "-bin" "-appimage" "-nightly")
 
 declare -ag CRITICAL_PACKAGES=()
@@ -63,6 +63,11 @@ reset_risk_state() {
 classify_package() {
     local pkg="$1"
 
+    if bool_is_true "$(is_kernel_package "$pkg")"; then
+        printf 'CRITICAL\n'
+        return 0
+    fi
+
     if package_matches_any "$pkg" "${CRITICAL_PATTERNS[@]}"; then
         printf 'CRITICAL\n'
         return 0
@@ -115,8 +120,20 @@ package_from_update_line() {
     printf '%s\n' "$pkg"
 }
 
+is_kernel_package() {
+    local pkg="$1"
+
+    if [[ "$pkg" == "linux" ]]; then
+        printf 'true\n'
+    elif [[ "$pkg" == linux-* && "$pkg" != "linux-firmware" ]]; then
+        printf 'true\n'
+    else
+        printf 'false\n'
+    fi
+}
+
 requires_reboot() {
-    if package_matches_any "$1" "${REBOOT_REQUIRED_PATTERNS[@]}"; then
+    if bool_is_true "$(is_kernel_package "$1")" || package_matches_any "$1" "${REBOOT_REQUIRED_PATTERNS[@]}"; then
         printf 'true\n'
     else
         printf 'false\n'
@@ -132,7 +149,7 @@ has_graphics_impact() {
 }
 
 has_boot_impact() {
-    if package_matches_any "$1" "${BOOT_IMPACT_PATTERNS[@]}"; then
+    if bool_is_true "$(is_kernel_package "$1")" || package_matches_any "$1" "${BOOT_IMPACT_PATTERNS[@]}"; then
         printf 'true\n'
     else
         printf 'false\n'
@@ -140,7 +157,7 @@ has_boot_impact() {
 }
 
 is_core_system_package() {
-    if package_matches_any "$1" "${CORE_SYSTEM_PATTERNS[@]}"; then
+    if bool_is_true "$(is_kernel_package "$1")" || package_matches_any "$1" "${CORE_SYSTEM_PATTERNS[@]}"; then
         printf 'true\n'
     else
         printf 'false\n'

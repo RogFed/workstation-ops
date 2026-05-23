@@ -163,7 +163,7 @@ Current report fields include:
 * `bootloader`
 * `snapshot.created`, `snapshot.name`, `snapshot.id` (optional; `null` when Snapper does not expose a parsable snapshot ID)
 * `updates.critical`, `updates.high`, `updates.medium`, `updates.low`
-* `package_risk_metadata[]` objects with `severity`, `reboot_required`, `boot_impact`, `graphics_impact`, `core_system_impact`, `userland_only`, and `aur_package`
+* `package_risk_metadata[]` objects with `name`, `severity`, `reboot_required`, `boot_impact`, `graphics_impact`, `core_system_impact`, `userland_only`, and `aur_package`
 * `risk_summary.critical_package_count`, `risk_summary.high_package_count`, `risk_summary.medium_package_count`, `risk_summary.low_package_count`
 * `risk_summary.graphics_stack_changed`, `risk_summary.boot_chain_changed`, `risk_summary.core_system_changed`
 * `risk_summary.reboot_required`, `risk_summary.aur_package_count`

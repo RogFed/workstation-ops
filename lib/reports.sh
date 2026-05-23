@@ -237,6 +237,17 @@ validate_report() {
         (.updates.medium | type == "array") and
         (.updates.low | type == "array") and
         (.package_risk_metadata | type == "array") and
+        (all(.package_risk_metadata[];
+            (. | type == "object") and
+            (.name | type == "string") and
+            ((.severity == "CRITICAL") or (.severity == "HIGH") or (.severity == "MEDIUM") or (.severity == "LOW")) and
+            (.reboot_required | type == "boolean") and
+            (.boot_impact | type == "boolean") and
+            (.graphics_impact | type == "boolean") and
+            (.core_system_impact | type == "boolean") and
+            (.userland_only | type == "boolean") and
+            (.aur_package | type == "boolean")
+        )) and
         (.risk_summary | type == "object") and
         (.risk_summary.critical_package_count | type == "number") and
         (.risk_summary.high_package_count | type == "number") and
