@@ -14,6 +14,10 @@ init_config() {
     local repo_root="$1"
     local env_data_dir_set="false"
     local env_data_dir=""
+    local env_checkupdates_bin_set="false"
+    local env_checkupdates_bin=""
+    local env_paru_bin_set="false"
+    local env_paru_bin=""
     local env_timestamp_set="false"
     local env_timestamp=""
     local env_iso_timestamp_set="false"
@@ -25,6 +29,16 @@ init_config() {
     if [[ -v SAFE_UPDATE_DATA_DIR && -n "$SAFE_UPDATE_DATA_DIR" ]]; then
         env_data_dir_set="true"
         env_data_dir="$SAFE_UPDATE_DATA_DIR"
+    fi
+
+    if [[ -v CHECKUPDATES_BIN && -n "$CHECKUPDATES_BIN" ]]; then
+        env_checkupdates_bin_set="true"
+        env_checkupdates_bin="$CHECKUPDATES_BIN"
+    fi
+
+    if [[ -v PARU_BIN && -n "$PARU_BIN" ]]; then
+        env_paru_bin_set="true"
+        env_paru_bin="$PARU_BIN"
     fi
 
     if [[ -v TIMESTAMP ]]; then
@@ -47,6 +61,7 @@ init_config() {
     UPDATE_SNAPSHOT_RETENTION="${UPDATE_SNAPSHOT_RETENTION:-5}"
     ARCH_NEWS_DETECTED="${ARCH_NEWS_DETECTED:-false}"
     CACHYOS_NEWS_DETECTED="${CACHYOS_NEWS_DETECTED:-false}"
+    CHECKUPDATES_BIN="${CHECKUPDATES_BIN:-checkupdates}"
     PARU_BIN="${PARU_BIN:-paru}"
     NOTIFY_SEND_BIN="${NOTIFY_SEND_BIN:-notify-send}"
     SUDO_BIN="${SUDO_BIN:-sudo}"
@@ -60,6 +75,14 @@ init_config() {
 
     if [[ "$env_data_dir_set" == "true" ]]; then
         SAFE_UPDATE_DATA_DIR="$env_data_dir"
+    fi
+
+    if [[ "$env_checkupdates_bin_set" == "true" ]]; then
+        CHECKUPDATES_BIN="$env_checkupdates_bin"
+    fi
+
+    if [[ "$env_paru_bin_set" == "true" ]]; then
+        PARU_BIN="$env_paru_bin"
     fi
 
     if [[ "$env_timestamp_set" == "true" ]]; then

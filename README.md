@@ -30,7 +30,8 @@ A collection of system administration scripts and utilities designed to keep an 
 To use `safe-update`, your system must have:
 
 * **Arch Linux** or a compatible derivative such as **CachyOS**
-* **Paru** installed as the AUR helper (for `paru -Qu` and `paru -Syu`)
+* **pacman-contrib** installed for `checkupdates`, which safely refreshes a temporary pacman database before detection
+* **Paru** installed as the AUR helper for `paru -Syu`
 * **Btrfs** with **Snapper** configured
 * **libnotify** (providing `notify-send`) for desktop alerts
 * **jq** for structured report generation and validation; when `ENABLE_REPORTS=true` (the default), `safe-update` fails fast if `jq` is unavailable
