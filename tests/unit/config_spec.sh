@@ -23,3 +23,16 @@ assert_eq "/tmp/custom-safe-update" "$SAFE_UPDATE_DATA_DIR" "Config file should 
 assert_eq "false" "$ENABLE_NOTIFICATIONS" "Config file should override feature flags"
 assert_eq "9" "$UPDATE_SNAPSHOT_RETENTION" "Config file should override retention values"
 assert_eq "/tmp/custom-safe-update/logs/update-2026-05-22-2100.log" "$LOG_FILE" "Derived log path should follow the configured data dir"
+
+SAFE_UPDATE_DATA_DIR=""
+LOG_DIR=""
+REPORT_DIR=""
+CACHE_DIR=""
+STATE_DIR=""
+LOG_FILE=""
+REPORT_FILE=""
+SNAPSHOT_NAME=""
+init_config "$REPO_ROOT"
+
+assert_eq "/tmp/custom-safe-update" "$SAFE_UPDATE_DATA_DIR" "An empty SAFE_UPDATE_DATA_DIR env var should not override config/defaults"
+assert_eq "/tmp/custom-safe-update/logs/update-2026-05-22-2100.log" "$LOG_FILE" "Derived log path should ignore an empty SAFE_UPDATE_DATA_DIR env var"

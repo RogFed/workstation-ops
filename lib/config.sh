@@ -12,7 +12,7 @@ init_config() {
     REPO_ROOT="$repo_root"
     CONFIG_FILE="${SAFE_UPDATE_CONFIG_FILE:-$REPO_ROOT/config/safe-update.conf}"
 
-    if [[ -v SAFE_UPDATE_DATA_DIR ]]; then
+    if [[ -v SAFE_UPDATE_DATA_DIR && -n "$SAFE_UPDATE_DATA_DIR" ]]; then
         env_data_dir_set="true"
         env_data_dir="$SAFE_UPDATE_DATA_DIR"
     fi
