@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+validate_runtime_path() {
+    local name="$1"
+    local value="$2"
+
+    if [[ -z "$value" || "$value" == "/" ]]; then
+        printf '%s\n' "ERROR: $name must not be empty or /" >&2
+        return 1
+    fi
+}
+
 init_config() {
     local repo_root="$1"
     local env_data_dir_set="false"
@@ -75,18 +85,9 @@ init_config() {
     REPORT_DIR="$(dirname "$REPORT_FILE")"
     SNAPSHOT_NAME="${SNAPSHOT_NAME:-$SNAPSHOT_PREFIX-$TIMESTAMP}"
 
-    if [[ -z "$SAFE_UPDATE_DATA_DIR" || "$SAFE_UPDATE_DATA_DIR" == "/" ]]; then
-        printf '%s\n' 'ERROR: SAFE_UPDATE_DATA_DIR must not be empty or /' >&2
-        return 1
-    fi
-
-    if [[ -z "$LOG_DIR" || "$LOG_DIR" == "/" ]]; then
-        printf '%s\n' 'ERROR: LOG_DIR must not be empty or /' >&2
-        return 1
-    fi
-
-    if [[ -z "$REPORT_DIR" || "$REPORT_DIR" == "/" ]]; then
-        printf '%s\n' 'ERROR: REPORT_DIR must not be empty or /' >&2
-        return 1
-    fi
+    validate_runtime_path "SAFE_UPDATE_DATA_DIR" "$SAFE_UPDATE_DATA_DIR" || return 1
+    validate_runtime_path "LOG_DIR" "$LOG_DIR" || return 1
+    validate_runtime_path "REPORT_DIR" "$REPORT_DIR" || return 1
+    validate_runtime_path "CACHE_DIR" "$CACHE_DIR" || return 1
+    validate_runtime_path "STATE_DIR" "$STATE_DIR" || return 1
 }

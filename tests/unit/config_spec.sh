@@ -59,3 +59,27 @@ assert_eq "/tmp/safe-update-custom/logs/custom.log" "$LOG_FILE" "Custom LOG_FILE
 assert_eq "/tmp/safe-update-custom/logs" "$LOG_DIR" "LOG_DIR should follow dirname(LOG_FILE)"
 assert_eq "/tmp/safe-update-custom/reports/custom.json" "$REPORT_FILE" "Custom REPORT_FILE should be preserved"
 assert_eq "/tmp/safe-update-custom/reports" "$REPORT_DIR" "REPORT_DIR should follow dirname(REPORT_FILE)"
+
+cat > "$TEST_DIR/invalid-cache.conf" <<'EOF'
+SAFE_UPDATE_DATA_DIR="/tmp/valid-safe-update"
+CACHE_DIR="/"
+EOF
+
+SAFE_UPDATE_CONFIG_FILE="$TEST_DIR/invalid-cache.conf"
+SAFE_UPDATE_DATA_DIR=""
+LOG_DIR=""
+REPORT_DIR=""
+CACHE_DIR=""
+STATE_DIR=""
+LOG_FILE=""
+REPORT_FILE=""
+SNAPSHOT_NAME=""
+CONFIG_ERROR_OUTPUT="$TEST_DIR/config-error.out"
+
+set +e
+init_config "$REPO_ROOT" > "$CONFIG_ERROR_OUTPUT" 2>&1
+config_status=$?
+set -e
+
+assert_eq "1" "$config_status" "init_config should fail for invalid CACHE_DIR"
+assert_file_contains "$CONFIG_ERROR_OUTPUT" 'ERROR: CACHE_DIR must not be empty or /'

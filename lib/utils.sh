@@ -16,6 +16,11 @@ is_yes() {
 }
 
 ensure_dir() {
+    if [[ -z "${1:-}" || "$1" == "/" ]]; then
+        printf '%s\n' "ERROR: Refusing to create invalid directory path: ${1:-<empty>}" >&2
+        return 1
+    fi
+
     mkdir -p "$1"
 }
 
