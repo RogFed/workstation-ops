@@ -154,7 +154,8 @@ validate_report() {
         validation_target="$REPORT_FILE"
     fi
 
-    if ! validation_error=$(jq -e '
+    if ! validation_error=$({
+        jq -e '
         (.version | type == "string") and
         (.timestamp | type == "string") and
         (.hostname | type == "string") and
@@ -177,7 +178,8 @@ validate_report() {
         (.advisory_flags.cachyos_news_detected | type == "boolean") and
         (.log_file | type == "string") and
         (.report_path | type == "string")
-    ' "$1" 2>&1 > /dev/null); then
+    ' "$1" > /dev/null
+    } 2>&1); then
         if [[ -n "$validation_error" ]]; then
             set_report_error "Generated report failed validation: $validation_target ($validation_error)"
         else
