@@ -4,12 +4,18 @@ write_report() {
     local status="$1"
     local snapshot_name="$2"
     local reboot_required="$3"
+    local report_dir
+    local tmp_report_file
 
     if ! bool_is_true "$ENABLE_REPORTS"; then
         return 0
     fi
 
-    {
+    report_dir="${REPORT_DIR:-$(dirname "$REPORT_FILE")}"
+    tmp_report_file=$(mktemp "$report_dir/.report-XXXXXX.tmp")
+    chmod 600 "$tmp_report_file"
+
+    if ! {
         printf '{\n'
         printf '  "timestamp": "%s",\n' "$(json_escape "$ISO_TIMESTAMP")"
         printf '  "status": "%s",\n' "$(json_escape "$status")"
@@ -25,5 +31,10 @@ write_report() {
         printf '  "cachyos_news_detected": %s,\n' "$(json_bool "$CACHYOS_NEWS_DETECTED")"
         printf '  "report_path": "%s"\n' "$(json_escape "$REPORT_FILE")"
         printf '}\n'
-    } > "$REPORT_FILE"
+    } > "$tmp_report_file"; then
+        rm -f "$tmp_report_file"
+        return 1
+    fi
+
+    mv "$tmp_report_file" "$REPORT_FILE"
 }

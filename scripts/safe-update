@@ -71,8 +71,17 @@ main() {
     fi
 
     verify_update_execution_prereqs
-    create_snapshot
-    run_updates
+
+    if ! create_snapshot; then
+        write_report "snapshot-failed" "" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
+    if ! run_updates; then
+        write_report "update-failed" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
     reboot_check
     write_report "success" "$SNAPSHOT_NAME" "$REBOOT_REQUIRED"
 

@@ -29,6 +29,9 @@ case "${1:-}" in
         ;;
     -Syu)
         printf 'paru -Syu\n' >> "$MOCK_CALLS_DIR/commands.log"
+        if [[ "${MOCK_PARU_UPDATE_FAIL:-false}" == "true" ]]; then
+            exit 3
+        fi
         ;;
     *)
         echo "Unexpected paru invocation: $*" >&2
@@ -48,6 +51,9 @@ cat > "$MOCK_PATH/snapper" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'snapper %s\n' "$*" >> "$MOCK_CALLS_DIR/commands.log"
+if [[ "${MOCK_SNAPPER_FAIL:-false}" == "true" ]]; then
+    exit 4
+fi
 EOF
 
 cat > "$MOCK_PATH/notify-send" <<'EOF'
@@ -69,6 +75,11 @@ run_safe_update() {
     MOCK_PARU_UPDATES="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
+    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
+    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
@@ -87,6 +98,11 @@ run_safe_update_via_symlink() {
     MOCK_PARU_UPDATES="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
+    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
+    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
@@ -102,6 +118,11 @@ run_safe_update_expect_failure() {
     MOCK_PARU_UPDATES="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
+    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
+    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
@@ -129,8 +150,8 @@ assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2132.json" '"reboot_re
 assert_file_contains "$CALLS_DIR/commands.log" 'snapper create --description pre-update-2026-05-22-2132'
 assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'
 
-run_safe_update_via_symlink "" "" "2026-05-22-21325"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-21325.json" '"status": "no-updates"'
+run_safe_update_via_symlink "" "" "2026-05-22-2125"
+assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2125.json" '"status": "no-updates"'
 
 MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-21326"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-21326.json" '"status": "no-updates"'
@@ -145,3 +166,9 @@ assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2134.json" '"status": 
 MOCK_PARU_ERROR='database unavailable' run_safe_update_expect_failure "" "" "2026-05-22-2135"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2135.log" 'ERROR: Failed to query pending updates with paru -Qu'
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2135.json" '"status": "detect-failed"'
+
+MOCK_SNAPPER_FAIL=true run_safe_update_expect_failure $'linux-cachyos 1 -> 2' "y" "2026-05-22-2136"
+assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2136.json" '"status": "snapshot-failed"'
+
+MOCK_PARU_UPDATE_FAIL=true run_safe_update_expect_failure $'linux-cachyos 1 -> 2' "y" "2026-05-22-2137"
+assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2137.json" '"status": "update-failed"'
