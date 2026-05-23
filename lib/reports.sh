@@ -111,12 +111,14 @@ generate_report() {
 }
 
 validate_report() {
+    local validation_error=""
+
     if ! have_command jq; then
         set_report_error "Structured reports require jq"
         return 1
     fi
 
-    if ! jq -e '
+    if ! validation_error=$(jq -e '
         (.version | type == "string") and
         (.timestamp | type == "string") and
         (.hostname | type == "string") and
@@ -139,8 +141,12 @@ validate_report() {
         (.advisory_flags.cachyos_news_detected | type == "boolean") and
         (.log_file | type == "string") and
         (.report_path | type == "string")
-    ' "$1" > /dev/null; then
-        set_report_error "Generated report failed validation: $1"
+    ' "$1" 2>&1 > /dev/null); then
+        if [[ -n "$validation_error" ]]; then
+            set_report_error "Generated report failed validation: $1 ($validation_error)"
+        else
+            set_report_error "Generated report failed validation: $1"
+        fi
         return 1
     fi
 }
