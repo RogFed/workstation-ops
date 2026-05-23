@@ -60,6 +60,26 @@ assert_eq "/tmp/safe-update-custom/logs" "$LOG_DIR" "LOG_DIR should follow dirna
 assert_eq "/tmp/safe-update-custom/reports/custom.json" "$REPORT_FILE" "Custom REPORT_FILE should be preserved"
 assert_eq "/tmp/safe-update-custom/reports" "$REPORT_DIR" "REPORT_DIR should follow dirname(REPORT_FILE)"
 
+cat > "$TEST_DIR/default-patterns.conf" <<'EOF'
+SAFE_UPDATE_DATA_DIR="/tmp/default-pattern-safe-update"
+EOF
+
+SAFE_UPDATE_CONFIG_FILE="$TEST_DIR/default-patterns.conf"
+unset TIMESTAMP
+unset ISO_TIMESTAMP
+SAFE_UPDATE_DATA_DIR=""
+LOG_DIR=""
+REPORT_DIR=""
+CACHE_DIR=""
+STATE_DIR=""
+LOG_FILE=""
+REPORT_FILE=""
+SNAPSHOT_NAME=""
+init_config "$REPO_ROOT"
+
+[[ "$LOG_FILE" =~ ^/tmp/default-pattern-safe-update/logs/update-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}\.log$ ]] || fail "Default LOG_FILE should use sortable timestamps"
+[[ "$REPORT_FILE" =~ ^/tmp/default-pattern-safe-update/reports/report-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}\.json$ ]] || fail "Default REPORT_FILE should use sortable timestamps"
+
 cat > "$TEST_DIR/invalid-cache.conf" <<'EOF'
 SAFE_UPDATE_DATA_DIR="/tmp/valid-safe-update"
 CACHE_DIR="/"

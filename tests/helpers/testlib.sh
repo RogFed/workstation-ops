@@ -34,6 +34,26 @@ assert_file_contains() {
     grep -F -- "$needle" "$file" > /dev/null || fail "Expected $file to contain: $needle"
 }
 
+assert_json_expression() {
+    local file="$1"
+    local expression="$2"
+    local message="${3:-Expected $file to satisfy jq expression: $expression}"
+
+    [[ -f "$file" ]] || fail "Expected file to exist: $file"
+    jq -e "$expression" "$file" > /dev/null || fail "$message"
+}
+
+assert_json_value() {
+    local file="$1"
+    local expression="$2"
+    local expected="$3"
+    local actual
+
+    [[ -f "$file" ]] || fail "Expected file to exist: $file"
+    actual=$(jq -r "$expression" "$file") || fail "Expected jq expression to succeed: $expression"
+    [[ "$actual" == "$expected" ]] || fail "Expected $file expression $expression to equal '$expected' but got '$actual'"
+}
+
 make_test_dir() {
     mktemp -d
 }

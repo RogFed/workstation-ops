@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.1
+
+- Reworked structured report generation to use `jq` instead of manual JSON string assembly
+- Added report validation before persistence and preserved append-only timestamped report history
+- Expanded report metadata with version, hostname, kernel version, bootloader, snapshot state, duration, and risk-bucketed package arrays
+- Standardized runtime artifact naming on sortable `YYYY-MM-DDTHHMMSS` timestamps
+- Improved log consistency with timestamped log lines
+
 ## v0.2.0
 
 - Refactored `safe-update` into sourceable Bash modules under `lib/`

@@ -33,6 +33,7 @@ To use `safe-update`, your system must have:
 * **Paru** installed as the AUR helper (for `paru -Qu` and `paru -Syu`)
 * **Btrfs** with **Snapper** configured
 * **libnotify** (providing `notify-send`) for desktop alerts
+* **jq** for structured report generation and validation
 
 ---
 
@@ -145,6 +146,25 @@ Runtime-generated data lives outside the repository under:
 
 Key outputs:
 
-* **Logs**: `~/.local/share/safe-update/logs/update-YYYY-MM-DD-HHMM.log`
-* **Reports**: `~/.local/share/safe-update/reports/report-YYYY-MM-DD-HHMM.json`
-* **Snapshots**: `pre-update-YYYY-MM-DD-HHMM`
+* **Logs**: `~/.local/share/safe-update/logs/update-YYYY-MM-DDTHHMMSS.log`
+* **Reports**: `~/.local/share/safe-update/reports/report-YYYY-MM-DDTHHMMSS.json`
+* **Snapshots**: `pre-update-YYYY-MM-DDTHHMMSS`
+
+## 📊 Structured Report Schema
+
+Reports are immutable JSON records written with `jq` and validated before they are persisted.
+
+Current report fields include:
+
+* `version`
+* `timestamp`
+* `hostname`
+* `kernel_version`
+* `bootloader`
+* `snapshot.created`, `snapshot.name`, `snapshot.id`
+* `updates.critical`, `updates.high`, `updates.medium`, `updates.low`
+* `reboot_required`
+* `update_result`
+* `duration_seconds`
+* `advisory_flags.arch_news_detected`, `advisory_flags.cachyos_news_detected`
+* `log_file`, `report_path`

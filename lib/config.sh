@@ -71,7 +71,7 @@ init_config() {
     fi
 
     SAFE_UPDATE_DATA_DIR="${SAFE_UPDATE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/safe-update}"
-    TIMESTAMP="${TIMESTAMP:-$(date +"%Y-%m-%d-%H%M")}"
+    TIMESTAMP="${TIMESTAMP:-$(date +"%Y-%m-%dT%H%M%S")}"
     ISO_TIMESTAMP="${ISO_TIMESTAMP:-$(date --iso-8601=seconds)}"
 
     LOG_DIR="${LOG_DIR:-$SAFE_UPDATE_DATA_DIR/logs}"

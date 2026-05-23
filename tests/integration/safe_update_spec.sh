@@ -85,6 +85,12 @@ run_safe_update() {
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
+    SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
+    SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
+    SAFE_UPDATE_BOOTLOADER="limine" \
+    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_START_EPOCH=100 \
+    SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
     bash "$REPO_ROOT/scripts/safe-update" <<< "$input_text"
@@ -108,6 +114,12 @@ run_safe_update_via_symlink() {
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
+    SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
+    SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
+    SAFE_UPDATE_BOOTLOADER="limine" \
+    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_START_EPOCH=100 \
+    SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
     bash "$symlink_dir/safe-update" <<< "$input_text"
@@ -131,6 +143,12 @@ run_safe_update_via_path() {
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$path_dir:$MOCK_PATH:$PATH" \
+    SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
+    SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
+    SAFE_UPDATE_BOOTLOADER="limine" \
+    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_START_EPOCH=100 \
+    SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
     bash -c 'safe-update' <<< "$input_text"
@@ -151,6 +169,12 @@ run_safe_update_expect_failure() {
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
     PATH="$MOCK_PATH:$PATH" \
+    SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
+    SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
+    SAFE_UPDATE_BOOTLOADER="limine" \
+    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_START_EPOCH=100 \
+    SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
     ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
     bash "$REPO_ROOT/scripts/safe-update" <<< "$input_text"
@@ -165,40 +189,41 @@ run_safe_update_expect_failure() {
 }
 
 run_safe_update "" "" "2026-05-22-2130"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2130.json" '"status": "no-updates"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2130.json" '.update_result == "no-updates" and .snapshot.created == false and .duration_seconds == 48'
 
 run_safe_update "$CANCELLED_UPDATES" "n" "2026-05-22-2131"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2131.json" '"status": "cancelled"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2131.json" '.update_result == "cancelled" and .updates.critical == ["linux-cachyos"] and .updates.low == ["firefox"]'
 assert_file_contains "$CALLS_DIR/commands.log" 'notify-send safe-update Critical updates detected'
 
 run_safe_update "$SUCCESS_UPDATES" "y" "2026-05-22-2132"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2132.json" '"status": "success"'
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2132.json" '"reboot_required": true'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.1" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.update_result == "success" and .reboot_required == true and .snapshot.created == true and .snapshot.name == "pre-update-2026-05-22-2132"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.updates.critical == ["linux-cachyos"] and .updates.high == ["pipewire"]'
 assert_file_contains "$CALLS_DIR/commands.log" 'snapper create --description pre-update-2026-05-22-2132'
 assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'
 
 run_safe_update_via_symlink "" "" "2026-05-22-2125"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2125.json" '"status": "no-updates"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2125.json" '.update_result == "no-updates"'
 
 run_safe_update_via_path "" "" "2026-05-22-2124"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2124.json" '"status": "no-updates"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2124.json" '.update_result == "no-updates"'
 
 MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-2126"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2126.json" '"status": "no-updates"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2126.json" '.update_result == "no-updates"'
 
 MOCK_NOTIFY_SEND_FAIL=true run_safe_update "$CRITICAL_ONLY_UPDATES" "n" "2026-05-22-2133"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2133.log" 'Notification skipped: notify-send failed'
 
 PARU_BIN=missing-paru run_safe_update_expect_failure "" "" "2026-05-22-2134"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2134.log" 'ERROR: Missing required command: missing-paru'
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2134.json" '"status": "missing-prereqs"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2134.json" '.update_result == "missing-prereqs"'
 
 MOCK_PARU_ERROR='database unavailable' run_safe_update_expect_failure "" "" "2026-05-22-2135"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2135.log" 'ERROR: Failed to query pending updates with paru -Qu'
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2135.json" '"status": "detect-failed"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2135.json" '.update_result == "detect-failed"'
 
 MOCK_SNAPPER_FAIL=true run_safe_update_expect_failure "$CRITICAL_ONLY_UPDATES" "y" "2026-05-22-2136"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2136.json" '"status": "snapshot-failed"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2136.json" '.update_result == "snapshot-failed" and .snapshot.created == false and .snapshot.name == "pre-update-2026-05-22-2136"'
 
 MOCK_PARU_UPDATE_FAIL=true run_safe_update_expect_failure "$CRITICAL_ONLY_UPDATES" "y" "2026-05-22-2137"
-assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2137.json" '"status": "update-failed"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2137.json" '.update_result == "update-failed" and .snapshot.created == true'
