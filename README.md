@@ -6,14 +6,14 @@ A collection of system administration scripts and utilities designed to keep an 
 
 ## 🛠️ safe-update
 
-`safe-update` is a Bash-based update orchestrator for Arch Linux and CachyOS systems using **Btrfs** and **Snapper**. It keeps the original rollback-first workflow while adding a modular architecture, runtime configuration, and structured reporting.
+`safe-update` is a Bash-based update orchestrator for Arch Linux and CachyOS systems using **Btrfs** and **Snapper**. It keeps the original rollback-first workflow while adding a modular architecture, runtime configuration, structured reporting, and multidimensional operational risk analysis.
 
 ### Core Features
 
 1. **Modular update workflow**  
    `scripts/safe-update` is the orchestration entrypoint and sources focused modules from `lib/` for config, logging, notifications, snapshots, risk analysis, utilities, and report generation.
-2. **Risk-aware package classification**  
-   Pending updates are grouped into `CRITICAL`, `HIGH`, `MEDIUM`, and `LOW` buckets before any changes are made.
+2. **Context-aware risk analysis**  
+   Pending updates are classified into `CRITICAL`, `HIGH`, `MEDIUM`, and `LOW` buckets while also tracking reboot, boot-chain, graphics-stack, core-system, and AUR-related impact metadata.
 3. **Rollback-first safety**  
    A pre-update Btrfs snapshot is created with `snapper` before upgrades run.
 4. **Human confirmation gates**  
@@ -163,6 +163,10 @@ Current report fields include:
 * `bootloader`
 * `snapshot.created`, `snapshot.name`, `snapshot.id` (optional; `null` when Snapper does not expose a parsable snapshot ID)
 * `updates.critical`, `updates.high`, `updates.medium`, `updates.low`
+* `package_risk_metadata[]` objects with `name`, `severity`, `reboot_required`, `boot_impact`, `graphics_impact`, `core_system_impact`, `userland_only`, and `aur_package`
+* `risk_summary.critical_package_count`, `risk_summary.high_package_count`, `risk_summary.medium_package_count`, `risk_summary.low_package_count`
+* `risk_summary.graphics_stack_changed`, `risk_summary.boot_chain_changed`, `risk_summary.core_system_changed`
+* `risk_summary.reboot_required`, `risk_summary.aur_package_count`
 * `reboot_required`
 * `update_result`
 * `duration_seconds`

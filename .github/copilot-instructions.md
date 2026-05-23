@@ -19,18 +19,18 @@ The runtime flow is:
 1. Load runtime config from `config/safe-update.conf` plus environment overrides.
 2. Derive runtime paths under `~/.local/share/safe-update/{logs,reports,cache,state}`.
 3. Detect pending package updates with `paru -Qu`.
-4. Classify each pending package as `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
+4. Build multidimensional package risk metadata and classify each pending package as `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
 5. If any `CRITICAL` package is present, emit a terminal warning and a `notify-send` desktop notification before asking for explicit confirmation.
 6. After confirmation, create a pre-update Btrfs snapshot with `sudo snapper create --description "pre-update-YYYY-MM-DDTHHMMSS"`.
 7. Run the actual upgrade with `paru -Syu`.
 8. Emit both a timestamped logfile and a validated structured JSON report for the run.
-9. Recommend a reboot when updated packages match reboot-sensitive patterns.
+9. Recommend a reboot from metadata-driven risk analysis and log graphics/boot impact summaries when they apply.
 
 The module split is part of the repository design:
 
 - `lib/config.sh` loads defaults and runtime config
 - `lib/logging.sh` owns mirrored console/log output
-- `lib/risk.sh` owns risk classification and reboot detection
+- `lib/risk.sh` owns severity classification, reboot analysis, graphics/boot impact detection, and structured package risk metadata
 - `lib/snapshots.sh` wraps Snapper snapshot creation
 - `lib/notifications.sh` gates desktop notifications
 - `lib/reports.sh` generates and validates structured JSON reports with `jq`
@@ -46,7 +46,7 @@ The module split is part of the repository design:
 - Preserve the existing logging pattern: user-facing milestones go through `log()` / `section()` so they are mirrored to the timestamped logfile.
 - Preserve the safety model: analyze update risk first, warn on `CRITICAL` actions, and keep a recovery path via snapshots before destructive system changes.
 - The package risk taxonomy is part of the repo's behavior contract: `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`.
-- JSON reports are a stable integration surface; generate them with `jq`, validate them before persistence, and keep report fields aligned with the workflow state.
+- JSON reports are a stable integration surface; generate them with `jq`, validate them before persistence, and keep risk metadata/risk summaries aligned with the workflow state.
 - Default runtime artifact names should use sortable `YYYY-MM-DDTHHMMSS` timestamps.
 - When adding behavior, update or add specs first and keep `./tests/run` green through the refactor.
 - If you change script behavior, configuration defaults, dependencies, or add scripts under `scripts/`, update `README.md` in the same change.

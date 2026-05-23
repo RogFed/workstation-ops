@@ -54,6 +54,64 @@ json_string_or_null() {
     fi
 }
 
+package_risk_metadata_json() {
+    if [[ "${#RISK_PACKAGES[@]}" -eq 0 ]]; then
+        printf '[]\n'
+        return 0
+    fi
+
+    local pkg
+    {
+        for pkg in "${RISK_PACKAGES[@]}"; do
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+                "$pkg" \
+                "${PACKAGE_SEVERITY[$pkg]:-LOW}" \
+                "${PACKAGE_REBOOT_REQUIRED[$pkg]:-false}" \
+                "${PACKAGE_BOOT_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_GRAPHICS_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_CORE_SYSTEM_IMPACT[$pkg]:-false}" \
+                "${PACKAGE_USERLAND_ONLY[$pkg]:-false}" \
+                "${PACKAGE_AUR[$pkg]:-false}"
+        done
+    } | jq -Rsc '
+        split("\n")[:-1]
+        | map(split("\t"))
+        | map({
+            name: .[0],
+            severity: .[1],
+            reboot_required: (.[2] == "true"),
+            boot_impact: (.[3] == "true"),
+            graphics_impact: (.[4] == "true"),
+            core_system_impact: (.[5] == "true"),
+            userland_only: (.[6] == "true"),
+            aur_package: (.[7] == "true")
+        })'
+}
+
+risk_summary_json() {
+    jq -n \
+        --argjson critical_package_count "${#CRITICAL_PACKAGES[@]}" \
+        --argjson high_package_count "${#HIGH_PACKAGES[@]}" \
+        --argjson medium_package_count "${#MEDIUM_PACKAGES[@]}" \
+        --argjson low_package_count "${#LOW_PACKAGES[@]}" \
+        --argjson graphics_stack_changed "$(json_bool "${GRAPHICS_STACK_CHANGED:-false}")" \
+        --argjson boot_chain_changed "$(json_bool "${BOOT_CHAIN_CHANGED:-false}")" \
+        --argjson core_system_changed "$(json_bool "${CORE_SYSTEM_CHANGED:-false}")" \
+        --argjson reboot_required "$(json_bool "${REBOOT_REQUIRED:-false}")" \
+        --argjson aur_package_count "${AUR_PACKAGE_COUNT:-0}" \
+        '{
+            critical_package_count: $critical_package_count,
+            high_package_count: $high_package_count,
+            medium_package_count: $medium_package_count,
+            low_package_count: $low_package_count,
+            graphics_stack_changed: $graphics_stack_changed,
+            boot_chain_changed: $boot_chain_changed,
+            core_system_changed: $core_system_changed,
+            reboot_required: $reboot_required,
+            aur_package_count: $aur_package_count
+        }'
+}
+
 generate_report() {
     local update_result="$1"
     local snapshot_name="$2"
@@ -70,6 +128,8 @@ generate_report() {
     local low_updates
     local snapshot_name_json
     local snapshot_id_json
+    local risk_summary
+    local package_risk_metadata
 
     if ! bool_is_true "$ENABLE_REPORTS"; then
         return 0
@@ -91,6 +151,8 @@ generate_report() {
     low_updates=$(json_array_from_args "${LOW_PACKAGES[@]}")
     snapshot_name_json=$(json_string_or_null "$snapshot_name")
     snapshot_id_json=$(json_string_or_null "${SNAPSHOT_ID:-}")
+    risk_summary=$(risk_summary_json)
+    package_risk_metadata=$(package_risk_metadata_json)
 
     jq -n \
         --arg version "$version" \
@@ -108,6 +170,8 @@ generate_report() {
         --argjson high_updates "$high_updates" \
         --argjson medium_updates "$medium_updates" \
         --argjson low_updates "$low_updates" \
+        --argjson risk_summary "$risk_summary" \
+        --argjson package_risk_metadata "$package_risk_metadata" \
         --argjson reboot_required "$(json_bool "$reboot_required")" \
         --argjson arch_news_detected "$(json_bool "$ARCH_NEWS_DETECTED")" \
         --argjson cachyos_news_detected "$(json_bool "$CACHYOS_NEWS_DETECTED")" \
@@ -129,6 +193,8 @@ generate_report() {
                 medium: $medium_updates,
                 low: $low_updates
             },
+            package_risk_metadata: $package_risk_metadata,
+            risk_summary: $risk_summary,
             reboot_required: $reboot_required,
             update_result: $update_result,
             duration_seconds: $duration_seconds,
@@ -170,6 +236,28 @@ validate_report() {
         (.updates.high | type == "array") and
         (.updates.medium | type == "array") and
         (.updates.low | type == "array") and
+        (.package_risk_metadata | type == "array") and
+        (all(.package_risk_metadata[];
+            (. | type == "object") and
+            (.name | type == "string") and
+            ((.severity == "CRITICAL") or (.severity == "HIGH") or (.severity == "MEDIUM") or (.severity == "LOW")) and
+            (.reboot_required | type == "boolean") and
+            (.boot_impact | type == "boolean") and
+            (.graphics_impact | type == "boolean") and
+            (.core_system_impact | type == "boolean") and
+            (.userland_only | type == "boolean") and
+            (.aur_package | type == "boolean")
+        )) and
+        (.risk_summary | type == "object") and
+        (.risk_summary.critical_package_count | type == "number") and
+        (.risk_summary.high_package_count | type == "number") and
+        (.risk_summary.medium_package_count | type == "number") and
+        (.risk_summary.low_package_count | type == "number") and
+        (.risk_summary.graphics_stack_changed | type == "boolean") and
+        (.risk_summary.boot_chain_changed | type == "boolean") and
+        (.risk_summary.core_system_changed | type == "boolean") and
+        (.risk_summary.reboot_required | type == "boolean") and
+        (.risk_summary.aur_package_count | type == "number") and
         (.reboot_required | type == "boolean") and
         (.update_result | type == "string") and
         (.duration_seconds | type == "number") and
