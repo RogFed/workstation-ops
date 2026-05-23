@@ -21,7 +21,7 @@ SAFE_UPDATE_NOW_EPOCH=148
 SAFE_UPDATE_HOSTNAME="cachyos-workstation"
 SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos"
 SAFE_UPDATE_BOOTLOADER="limine"
-SAFE_UPDATE_VERSION="0.2.2"
+SAFE_UPDATE_VERSION="0.2.3"
 SNAPSHOT_ID="42"
 TEST_UPDATES=$'linux-cachyos 1 -> 2\nmesa 1 -> 2\nplasma-desktop 1 -> 2\nwarp-terminal-bin 1 -> 2'
 
@@ -29,7 +29,7 @@ analyze_updates "$TEST_UPDATES"
 
 write_report "success" "pre-update-2026-05-22T211500" "true" "true"
 
-assert_json_expression "$REPORT_FILE" '.version == "0.2.2"'
+assert_json_expression "$REPORT_FILE" '.version == "0.2.3"'
 assert_json_expression "$REPORT_FILE" '.timestamp == "2026-05-22T21:15:00-06:00"'
 assert_json_expression "$REPORT_FILE" '.hostname == "cachyos-workstation"'
 assert_json_expression "$REPORT_FILE" '.kernel_version == "6.15.1-cachyos"'
@@ -75,7 +75,7 @@ set -e
 assert_eq "1" "$invalid_status" "validate_report should reject incomplete reports"
 
 jq -n '{
-  version: "0.2.2",
+  version: "0.2.3",
   timestamp: "2026-05-22T21:15:00-06:00",
   hostname: "cachyos-workstation",
   kernel_version: "6.15.1-cachyos",

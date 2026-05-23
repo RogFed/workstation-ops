@@ -113,7 +113,7 @@ detect_updates() {
     stdout_file=$(mktemp)
     stderr_file=$(mktemp)
 
-    if "$PARU_BIN" -Qu >"$stdout_file" 2>"$stderr_file"; then
+    if "$CHECKUPDATES_BIN" >"$stdout_file" 2>"$stderr_file"; then
         status=0
     else
         status=$?
@@ -123,16 +123,16 @@ detect_updates() {
     error_output=$(cat "$stderr_file")
     rm -f "$stdout_file" "$stderr_file"
 
-    if [[ "$status" -eq 0 ]]; then
+    if [[ "$status" -eq 0 && -n "$output" && -z "$error_output" ]]; then
         printf '%s\n' "$output"
         return 0
     fi
 
-    if [[ "$status" -eq 1 && -z "$output" && -z "$error_output" ]]; then
+    if [[ "$status" -eq 2 && -z "$output" && -z "$error_output" ]]; then
         return 0
     fi
 
-    error "Failed to query pending updates with $PARU_BIN -Qu"
+    error "Failed to query pending updates with $CHECKUPDATES_BIN"
     if [[ -n "$error_output" ]]; then
         printf '%s\n' "$error_output" | tee -a "$LOG_FILE" >&2
     fi
@@ -148,6 +148,12 @@ run_updates() {
 }
 
 verify_update_detection_prereqs() {
+    if ! have_command "$CHECKUPDATES_BIN"; then
+        error "Missing required command: $CHECKUPDATES_BIN"
+        safe_write_report "missing-prereqs" "" "false" "$REBOOT_REQUIRED"
+        exit 1
+    fi
+
     if ! have_command "$PARU_BIN"; then
         error "Missing required command: $PARU_BIN"
         safe_write_report "missing-prereqs" "" "false" "$REBOOT_REQUIRED"

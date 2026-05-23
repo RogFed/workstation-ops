@@ -18,16 +18,6 @@ cat > "$MOCK_PATH/paru" <<'EOF'
 set -euo pipefail
 
 case "${1:-}" in
-    -Qu)
-        if [[ -n "${MOCK_PARU_EXIT_CODE:-}" ]]; then
-            exit "$MOCK_PARU_EXIT_CODE"
-        fi
-        if [[ -n "${MOCK_PARU_ERROR:-}" ]]; then
-            printf '%s\n' "$MOCK_PARU_ERROR" >&2
-            exit 2
-        fi
-        printf '%s\n' "${MOCK_PARU_UPDATES:-}"
-        ;;
     -Syu)
         printf 'paru -Syu\n' >> "$MOCK_CALLS_DIR/commands.log"
         if [[ "${MOCK_PARU_UPDATE_FAIL:-false}" == "true" ]]; then
@@ -39,6 +29,23 @@ case "${1:-}" in
         exit 1
         ;;
 esac
+EOF
+
+cat > "$MOCK_PATH/checkupdates" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${MOCK_CHECKUPDATES_ERROR:-}" ]]; then
+    printf '%s\n' "$MOCK_CHECKUPDATES_ERROR" >&2
+    exit 1
+fi
+
+if [[ -n "${MOCK_CHECKUPDATES_OUTPUT:-}" ]]; then
+    printf '%s\n' "$MOCK_CHECKUPDATES_OUTPUT"
+    exit 0
+fi
+
+exit "${MOCK_CHECKUPDATES_EXIT_CODE:-2}"
 EOF
 
 cat > "$MOCK_PATH/sudo" <<'EOF'
@@ -69,7 +76,7 @@ if [[ "${MOCK_NOTIFY_SEND_FAIL:-false}" == "true" ]]; then
 fi
 EOF
 
-chmod +x "$MOCK_PATH/paru" "$MOCK_PATH/sudo" "$MOCK_PATH/snapper" "$MOCK_PATH/notify-send"
+chmod +x "$MOCK_PATH/paru" "$MOCK_PATH/checkupdates" "$MOCK_PATH/sudo" "$MOCK_PATH/snapper" "$MOCK_PATH/notify-send"
 
 for runtime_cmd in bash cat chmod date dirname hostname mkdir mktemp mv rm tee uname; do
     ln -sf "$(command -v "$runtime_cmd")" "$RUNTIME_BIN/$runtime_cmd"
@@ -84,12 +91,14 @@ run_safe_update() {
     local input_text="$2"
     local timestamp="$3"
 
-    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CHECKUPDATES_OUTPUT="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    CHECKUPDATES_BIN="${CHECKUPDATES_BIN:-checkupdates}" \
+    PARU_BIN="${PARU_BIN:-paru}" \
     MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
-    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
-    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_CHECKUPDATES_ERROR="${MOCK_CHECKUPDATES_ERROR:-}" \
+    MOCK_CHECKUPDATES_EXIT_CODE="${MOCK_CHECKUPDATES_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
@@ -97,7 +106,7 @@ run_safe_update() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.2" \
+    SAFE_UPDATE_VERSION="0.2.3" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -114,12 +123,14 @@ run_safe_update_via_symlink() {
     mkdir -p "$symlink_dir"
     ln -sf "$REPO_ROOT/scripts/safe-update" "$symlink_dir/safe-update"
 
-    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CHECKUPDATES_OUTPUT="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    CHECKUPDATES_BIN="${CHECKUPDATES_BIN:-checkupdates}" \
+    PARU_BIN="${PARU_BIN:-paru}" \
     MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
-    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
-    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_CHECKUPDATES_ERROR="${MOCK_CHECKUPDATES_ERROR:-}" \
+    MOCK_CHECKUPDATES_EXIT_CODE="${MOCK_CHECKUPDATES_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
@@ -127,7 +138,7 @@ run_safe_update_via_symlink() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.2" \
+    SAFE_UPDATE_VERSION="0.2.3" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -144,12 +155,14 @@ run_safe_update_via_path() {
     mkdir -p "$path_dir"
     ln -sf "$REPO_ROOT/scripts/safe-update" "$path_dir/safe-update"
 
-    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CHECKUPDATES_OUTPUT="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    CHECKUPDATES_BIN="${CHECKUPDATES_BIN:-checkupdates}" \
+    PARU_BIN="${PARU_BIN:-paru}" \
     MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
-    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
-    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_CHECKUPDATES_ERROR="${MOCK_CHECKUPDATES_ERROR:-}" \
+    MOCK_CHECKUPDATES_EXIT_CODE="${MOCK_CHECKUPDATES_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
@@ -157,7 +170,7 @@ run_safe_update_via_path() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.2" \
+    SAFE_UPDATE_VERSION="0.2.3" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -171,12 +184,14 @@ run_safe_update_expect_failure() {
     local timestamp="$3"
 
     set +e
-    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CHECKUPDATES_OUTPUT="$updates" \
     MOCK_CALLS_DIR="$CALLS_DIR" \
     SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    CHECKUPDATES_BIN="${CHECKUPDATES_BIN:-checkupdates}" \
+    PARU_BIN="${PARU_BIN:-paru}" \
     MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
-    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
-    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_CHECKUPDATES_ERROR="${MOCK_CHECKUPDATES_ERROR:-}" \
+    MOCK_CHECKUPDATES_EXIT_CODE="${MOCK_CHECKUPDATES_EXIT_CODE:-}" \
     MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
     MOCK_SNAPPER_OUTPUT="${MOCK_SNAPPER_OUTPUT:-Created snapshot 42}" \
     MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
@@ -184,7 +199,7 @@ run_safe_update_expect_failure() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.2" \
+    SAFE_UPDATE_VERSION="0.2.3" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     TIMESTAMP="$timestamp" \
@@ -212,7 +227,7 @@ run_safe_update_missing_jq_expect_failure() {
     SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
     SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
     SAFE_UPDATE_BOOTLOADER="limine" \
-    SAFE_UPDATE_VERSION="0.2.2" \
+    SAFE_UPDATE_VERSION="0.2.3" \
     SAFE_UPDATE_START_EPOCH=100 \
     SAFE_UPDATE_NOW_EPOCH=148 \
     PATH="$RUNTIME_BIN:$MOCK_PATH" \
@@ -237,7 +252,7 @@ assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2131.json" '.update_
 assert_file_contains "$CALLS_DIR/commands.log" 'notify-send safe-update Critical updates detected'
 
 run_safe_update "$SUCCESS_UPDATES" "y" "2026-05-22-2132"
-assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.2" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.version == "0.2.3" and .hostname == "cachyos-workstation" and .kernel_version == "6.15.1-cachyos" and .bootloader == "limine"'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.update_result == "success" and .reboot_required == true and .snapshot.created == true and .snapshot.name == "pre-update-2026-05-22-2132" and .snapshot.id == "42"'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.updates.critical == ["linux-cachyos"] and .updates.high == ["pipewire"]'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2132.json" '.risk_summary.critical_package_count == 1 and .risk_summary.high_package_count == 1 and .risk_summary.graphics_stack_changed == true and .risk_summary.boot_chain_changed == true and .risk_summary.reboot_required == true'
@@ -253,8 +268,11 @@ assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2125.json" '.update_
 run_safe_update_via_path "" "" "2026-05-22-2124"
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2124.json" '.update_result == "no-updates"'
 
-MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-2126"
+MOCK_CHECKUPDATES_EXIT_CODE=2 run_safe_update "" "" "2026-05-22-2126"
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2126.json" '.update_result == "no-updates"'
+
+run_safe_update "$CRITICAL_ONLY_UPDATES" "n" "2026-05-22-2127"
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2127.json" '.update_result == "cancelled" and .updates.critical == ["linux-cachyos"]'
 
 MOCK_NOTIFY_SEND_FAIL=true run_safe_update "$CRITICAL_ONLY_UPDATES" "n" "2026-05-22-2133"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2133.log" 'Notification skipped: notify-send failed'
@@ -263,12 +281,20 @@ run_safe_update_missing_jq_expect_failure "" "" "2026-05-22-2138"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2138.log" 'ERROR: Missing required command for structured reports: jq'
 [[ ! -f "$DATA_DIR/reports/report-2026-05-22-2138.json" ]] || fail "Report should not be written when jq is missing"
 
-PARU_BIN=missing-paru run_safe_update_expect_failure "" "" "2026-05-22-2134"
-assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2134.log" 'ERROR: Missing required command: missing-paru'
+CHECKUPDATES_BIN=missing-checkupdates
+run_safe_update_expect_failure "" "" "2026-05-22-2134"
+unset CHECKUPDATES_BIN
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2134.log" 'ERROR: Missing required command: missing-checkupdates'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2134.json" '.update_result == "missing-prereqs"'
 
-MOCK_PARU_ERROR='database unavailable' run_safe_update_expect_failure "" "" "2026-05-22-2135"
-assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2135.log" 'ERROR: Failed to query pending updates with paru -Qu'
+PARU_BIN=missing-paru
+run_safe_update_expect_failure "" "" "2026-05-22-2139"
+unset PARU_BIN
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2139.log" 'ERROR: Missing required command: missing-paru'
+assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2139.json" '.update_result == "missing-prereqs"'
+
+MOCK_CHECKUPDATES_ERROR='cannot fetch updates' run_safe_update_expect_failure "" "" "2026-05-22-2135"
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2135.log" 'ERROR: Failed to query pending updates with checkupdates'
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2135.json" '.update_result == "detect-failed"'
 
 MOCK_SNAPPER_FAIL=true run_safe_update_expect_failure "$CRITICAL_ONLY_UPDATES" "y" "2026-05-22-2136"
