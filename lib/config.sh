@@ -60,6 +60,7 @@ init_config() {
         ISO_TIMESTAMP="$env_iso_timestamp"
     fi
 
+    SAFE_UPDATE_DATA_DIR="${SAFE_UPDATE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/safe-update}"
     TIMESTAMP="${TIMESTAMP:-$(date +"%Y-%m-%d-%H%M")}"
     ISO_TIMESTAMP="${ISO_TIMESTAMP:-$(date --iso-8601=seconds)}"
 
@@ -70,5 +71,22 @@ init_config() {
 
     LOG_FILE="${LOG_FILE:-$LOG_DIR/update-$TIMESTAMP.log}"
     REPORT_FILE="${REPORT_FILE:-$REPORT_DIR/report-$TIMESTAMP.json}"
+    LOG_DIR="$(dirname "$LOG_FILE")"
+    REPORT_DIR="$(dirname "$REPORT_FILE")"
     SNAPSHOT_NAME="${SNAPSHOT_NAME:-$SNAPSHOT_PREFIX-$TIMESTAMP}"
+
+    if [[ -z "$SAFE_UPDATE_DATA_DIR" || "$SAFE_UPDATE_DATA_DIR" == "/" ]]; then
+        printf '%s\n' 'ERROR: SAFE_UPDATE_DATA_DIR must not be empty or /' >&2
+        return 1
+    fi
+
+    if [[ -z "$LOG_DIR" || "$LOG_DIR" == "/" ]]; then
+        printf '%s\n' 'ERROR: LOG_DIR must not be empty or /' >&2
+        return 1
+    fi
+
+    if [[ -z "$REPORT_DIR" || "$REPORT_DIR" == "/" ]]; then
+        printf '%s\n' 'ERROR: REPORT_DIR must not be empty or /' >&2
+        return 1
+    fi
 }

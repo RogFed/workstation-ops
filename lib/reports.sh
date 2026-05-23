@@ -11,7 +11,7 @@ write_report() {
         return 0
     fi
 
-    report_dir="${REPORT_DIR:-$(dirname "$REPORT_FILE")}"
+    report_dir="$(dirname "$REPORT_FILE")"
     mkdir -p "$report_dir"
     tmp_report_file=$(mktemp "$report_dir/.report-XXXXXX.tmp")
     chmod 600 "$tmp_report_file"
