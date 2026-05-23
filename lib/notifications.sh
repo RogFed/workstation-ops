@@ -10,9 +10,9 @@ notify_if_enabled() {
             return 0
         fi
 
-        log "Notification skipped: notify-send failed"
+        log "Notification skipped: $NOTIFY_SEND_BIN failed"
         return 0
     fi
 
-    log "Notification skipped: notify-send not available"
+    log "Notification skipped: $NOTIFY_SEND_BIN not available"
 }

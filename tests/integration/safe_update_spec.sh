@@ -109,6 +109,29 @@ run_safe_update_via_symlink() {
     bash "$symlink_dir/safe-update" <<< "$input_text"
 }
 
+run_safe_update_via_path() {
+    local updates="$1"
+    local input_text="$2"
+    local timestamp="$3"
+    local path_dir="$TEST_DIR/path-bin"
+
+    mkdir -p "$path_dir"
+    ln -sf "$REPO_ROOT/scripts/safe-update" "$path_dir/safe-update"
+
+    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CALLS_DIR="$CALLS_DIR" \
+    SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    MOCK_NOTIFY_SEND_FAIL="${MOCK_NOTIFY_SEND_FAIL:-false}" \
+    MOCK_PARU_ERROR="${MOCK_PARU_ERROR:-}" \
+    MOCK_PARU_EXIT_CODE="${MOCK_PARU_EXIT_CODE:-}" \
+    MOCK_SNAPPER_FAIL="${MOCK_SNAPPER_FAIL:-false}" \
+    MOCK_PARU_UPDATE_FAIL="${MOCK_PARU_UPDATE_FAIL:-false}" \
+    PATH="$path_dir:$MOCK_PATH:$PATH" \
+    TIMESTAMP="$timestamp" \
+    ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
+    bash -c 'safe-update' <<< "$input_text"
+}
+
 run_safe_update_expect_failure() {
     local updates="$1"
     local input_text="$2"
@@ -152,6 +175,9 @@ assert_file_contains "$CALLS_DIR/commands.log" 'paru -Syu'
 
 run_safe_update_via_symlink "" "" "2026-05-22-2125"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2125.json" '"status": "no-updates"'
+
+run_safe_update_via_path "" "" "2026-05-22-2124"
+assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2124.json" '"status": "no-updates"'
 
 MOCK_PARU_EXIT_CODE=1 run_safe_update "" "" "2026-05-22-2126"
 assert_file_contains "$DATA_DIR/reports/report-2026-05-22-2126.json" '"status": "no-updates"'

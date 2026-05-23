@@ -4,6 +4,10 @@ set -euo pipefail
 
 SOURCE_PATH="${BASH_SOURCE[0]}"
 
+if [[ "$SOURCE_PATH" != */* ]]; then
+    SOURCE_PATH=$(command -v -- "$SOURCE_PATH")
+fi
+
 while [[ -L "$SOURCE_PATH" ]]; do
     SCRIPT_DIR=$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)
     SOURCE_PATH=$(readlink "$SOURCE_PATH")
@@ -117,7 +121,7 @@ detect_updates() {
         return 0
     fi
 
-    error "Failed to query pending updates with paru -Qu"
+    error "Failed to query pending updates with $PARU_BIN -Qu"
     if [[ -n "$error_output" ]]; then
         printf '%s\n' "$error_output" | tee -a "$LOG_FILE" >&2
     fi
@@ -140,7 +144,7 @@ verify_update_detection_prereqs() {
     fi
 
     if bool_is_true "$ENABLE_NOTIFICATIONS" && ! have_command "$NOTIFY_SEND_BIN"; then
-        log "Notification support unavailable: notify-send not found"
+        log "Notification support unavailable: $NOTIFY_SEND_BIN not found"
     fi
 }
 
