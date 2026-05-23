@@ -4,7 +4,6 @@ REPORT_ERROR_MESSAGE=""
 
 set_report_error() {
     REPORT_ERROR_MESSAGE="$1"
-    printf '%s\n' "ERROR: $1" >&2
 }
 
 json_array_from_args() {
