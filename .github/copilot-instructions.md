@@ -56,5 +56,8 @@ The module split is part of the repository design:
 - Implement changes on a feature branch, not on `main`.
 - After implementation is complete and the user explicitly approves the work, push the feature branch to the remote repository.
 - Open a pull request from the feature branch into `main`.
+- Once the branch is pushed to an open PR, treat the PR synchronize event as the trigger for GitHub Copilot review and then read the resulting review comments.
+- Apply any required fixes from Copilot review feedback, rerun the relevant checks, and push follow-up commits until the review feedback is resolved.
+- Resolve Copilot-authored review threads after the fix is pushed or the comment is outdated; do not resolve user-authored comments on their behalf.
 - Update the repository version for the release as part of the approved changes.
 - Create the release tag for the new version after the change set is ready.

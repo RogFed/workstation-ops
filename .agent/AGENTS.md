@@ -51,8 +51,10 @@ Before conducting any Git operations that interact with the remote repository (e
 After implementation is complete and the user explicitly approves the work:
 1. Push the feature branch to the remote repository.
 2. Open a pull request from the feature branch into `main`.
-3. Update the project version for the release.
-4. Create the release tag for the new version.
+3. After each push to an open PR branch, review the Copilot PR feedback triggered by the synchronize event and apply fixes if needed.
+4. Resolve Copilot-authored review threads after the fixes are pushed or the thread is outdated; leave user-authored comments for the original commenter to resolve.
+5. Update the project version for the release.
+6. Create the release tag for the new version.
 
 ---
 
