@@ -34,12 +34,17 @@ assert_file_contains() {
     grep -F -- "$needle" "$file" > /dev/null || fail "Expected $file to contain: $needle"
 }
 
+require_jq() {
+    command -v jq > /dev/null 2>&1 || fail "jq is required for JSON-based test assertions"
+}
+
 assert_json_expression() {
     local file="$1"
     local expression="$2"
     local message="${3:-Expected $file to satisfy jq expression: $expression}"
 
     [[ -f "$file" ]] || fail "Expected file to exist: $file"
+    require_jq
     jq -e "$expression" "$file" > /dev/null || fail "$message"
 }
 
@@ -50,6 +55,7 @@ assert_json_value() {
     local actual
 
     [[ -f "$file" ]] || fail "Expected file to exist: $file"
+    require_jq
     actual=$(jq -r "$expression" "$file") || fail "Expected jq expression to succeed: $expression"
     [[ "$actual" == "$expected" ]] || fail "Expected $file expression $expression to equal '$expected' but got '$actual'"
 }

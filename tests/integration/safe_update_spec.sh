@@ -8,9 +8,10 @@ TEST_DIR=$(make_test_dir)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 MOCK_PATH=$(make_mock_bin "$TEST_DIR")
+RUNTIME_BIN="$TEST_DIR/runtime-bin"
 CALLS_DIR="$TEST_DIR/calls"
 DATA_DIR="$TEST_DIR/data"
-mkdir -p "$CALLS_DIR"
+mkdir -p "$CALLS_DIR" "$RUNTIME_BIN"
 
 cat > "$MOCK_PATH/paru" <<'EOF'
 #!/usr/bin/env bash
@@ -66,6 +67,10 @@ fi
 EOF
 
 chmod +x "$MOCK_PATH/paru" "$MOCK_PATH/sudo" "$MOCK_PATH/snapper" "$MOCK_PATH/notify-send"
+
+for runtime_cmd in bash cat chmod date dirname hostname mkdir mktemp mv rm tee uname; do
+    ln -sf "$(command -v "$runtime_cmd")" "$RUNTIME_BIN/$runtime_cmd"
+done
 
 CANCELLED_UPDATES=$'linux-cachyos 1 -> 2\nfirefox 1 -> 2'
 SUCCESS_UPDATES=$'linux-cachyos 1 -> 2\npipewire 1 -> 2'
@@ -188,6 +193,35 @@ run_safe_update_expect_failure() {
     return 0
 }
 
+run_safe_update_missing_jq_expect_failure() {
+    local updates="$1"
+    local input_text="$2"
+    local timestamp="$3"
+
+    set +e
+    MOCK_PARU_UPDATES="$updates" \
+    MOCK_CALLS_DIR="$CALLS_DIR" \
+    SAFE_UPDATE_DATA_DIR="$DATA_DIR" \
+    SAFE_UPDATE_HOSTNAME="cachyos-workstation" \
+    SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos" \
+    SAFE_UPDATE_BOOTLOADER="limine" \
+    SAFE_UPDATE_VERSION="0.2.1" \
+    SAFE_UPDATE_START_EPOCH=100 \
+    SAFE_UPDATE_NOW_EPOCH=148 \
+    PATH="$RUNTIME_BIN:$MOCK_PATH" \
+    TIMESTAMP="$timestamp" \
+    ISO_TIMESTAMP="2026-05-22T21:30:00-06:00" \
+    bash "$REPO_ROOT/scripts/safe-update" <<< "$input_text"
+    local exit_code=$?
+    set -e
+
+    if [[ "$exit_code" -eq 0 ]]; then
+        fail "Expected safe-update to fail without jq"
+    fi
+
+    return 0
+}
+
 run_safe_update "" "" "2026-05-22-2130"
 assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2130.json" '.update_result == "no-updates" and .snapshot.created == false and .duration_seconds == 48'
 
@@ -213,6 +247,10 @@ assert_json_expression "$DATA_DIR/reports/report-2026-05-22-2126.json" '.update_
 
 MOCK_NOTIFY_SEND_FAIL=true run_safe_update "$CRITICAL_ONLY_UPDATES" "n" "2026-05-22-2133"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2133.log" 'Notification skipped: notify-send failed'
+
+run_safe_update_missing_jq_expect_failure "" "" "2026-05-22-2138"
+assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2138.log" 'ERROR: Missing required command for structured reports: jq'
+[[ ! -f "$DATA_DIR/reports/report-2026-05-22-2138.json" ]] || fail "Report should not be written when jq is missing"
 
 PARU_BIN=missing-paru run_safe_update_expect_failure "" "" "2026-05-22-2134"
 assert_file_contains "$DATA_DIR/logs/update-2026-05-22-2134.log" 'ERROR: Missing required command: missing-paru'

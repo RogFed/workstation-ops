@@ -156,7 +156,8 @@ verify_update_detection_prereqs() {
     fi
 
     if bool_is_true "$ENABLE_REPORTS" && ! have_command jq; then
-        warn "Structured reporting unavailable: jq not found"
+        error "Missing required command for structured reports: jq"
+        exit 1
     fi
 }
 
