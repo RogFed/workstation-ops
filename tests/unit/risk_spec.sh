@@ -38,3 +38,13 @@ assert_eq "true" "${PACKAGE_AUR["warp-terminal-bin"]}" "Per-package AUR metadata
 assert_eq "true" "${PACKAGE_GRAPHICS_IMPACT["mesa"]}" "Per-package graphics metadata should be stored"
 assert_eq "true" "${PACKAGE_BOOT_IMPACT["linux-cachyos"]}" "Per-package boot metadata should be stored"
 assert_eq "true" "$REBOOT_REQUIRED" "Critical kernel-family updates should require a reboot"
+assert_eq "LOW" "${PACKAGE_BASE_SEVERITY["warp-terminal-bin"]}" "Base severity should preserve the non-advisory classification"
+
+promote_package_severity "warp-terminal-bin" "HIGH" "true"
+rebuild_risk_indexes
+
+assert_eq "HIGH" "${PACKAGE_SEVERITY["warp-terminal-bin"]}" "Advisories should be able to promote package severity"
+assert_eq "1" "${PACKAGE_ADVISORY_MATCH_COUNT["warp-terminal-bin"]}" "Advisory match counts should be tracked per package"
+assert_eq "true" "${PACKAGE_ESCALATED_BY_ADVISORY["warp-terminal-bin"]}" "Advisory-driven promotions should be recorded"
+assert_eq "true" "${PACKAGE_MANUAL_INTERVENTION_REQUIRED["warp-terminal-bin"]}" "Manual intervention flags should be tracked per package"
+assert_contains "manual-intervention" "$(format_risk_summary_line "warp-terminal-bin" "${PACKAGE_SEVERITY["warp-terminal-bin"]}" "${PACKAGE_REBOOT_REQUIRED["warp-terminal-bin"]}" "${PACKAGE_BOOT_IMPACT["warp-terminal-bin"]}" "${PACKAGE_GRAPHICS_IMPACT["warp-terminal-bin"]}" "${PACKAGE_CORE_SYSTEM_IMPACT["warp-terminal-bin"]}" "${PACKAGE_AUR["warp-terminal-bin"]}")" "Risk summaries should surface advisory manual intervention details"

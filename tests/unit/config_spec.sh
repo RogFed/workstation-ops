@@ -11,6 +11,8 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 cat > "$TEST_DIR/safe-update.conf" <<'EOF'
 SAFE_UPDATE_DATA_DIR="/tmp/custom-safe-update"
 ENABLE_NOTIFICATIONS=false
+ARCH_NEWS_URL="https://example.test/arch.xml"
+ADVISORY_CACHE_TTL_SECONDS=900
 UPDATE_SNAPSHOT_RETENTION=9
 EOF
 
@@ -21,6 +23,8 @@ init_config "$REPO_ROOT"
 
 assert_eq "/tmp/custom-safe-update" "$SAFE_UPDATE_DATA_DIR" "Config file should override the runtime data dir"
 assert_eq "false" "$ENABLE_NOTIFICATIONS" "Config file should override feature flags"
+assert_eq "https://example.test/arch.xml" "$ARCH_NEWS_URL" "Config file should override advisory feed URLs"
+assert_eq "900" "$ADVISORY_CACHE_TTL_SECONDS" "Config file should override advisory cache settings"
 assert_eq "9" "$UPDATE_SNAPSHOT_RETENTION" "Config file should override retention values"
 assert_eq "/tmp/custom-safe-update/logs/update-2026-05-22-2100.log" "$LOG_FILE" "Derived log path should follow the configured data dir"
 assert_eq "/tmp/custom-safe-update/logs" "$LOG_DIR" "LOG_DIR should match the derived log file directory"
@@ -37,6 +41,13 @@ init_config "$REPO_ROOT"
 
 assert_eq "/tmp/custom-safe-update" "$SAFE_UPDATE_DATA_DIR" "An empty SAFE_UPDATE_DATA_DIR env var should not override config/defaults"
 assert_eq "/tmp/custom-safe-update/logs/update-2026-05-22-2100.log" "$LOG_FILE" "Derived log path should ignore an empty SAFE_UPDATE_DATA_DIR env var"
+
+ENABLE_ARCH_NEWS=false
+ARCH_NEWS_URL="https://override.test/arch.xml"
+init_config "$REPO_ROOT"
+
+assert_eq "false" "$ENABLE_ARCH_NEWS" "Environment variables should override config-provided advisory feature flags"
+assert_eq "https://override.test/arch.xml" "$ARCH_NEWS_URL" "Environment variables should override config-provided advisory URLs"
 
 cat > "$TEST_DIR/custom-paths.conf" <<'EOF'
 SAFE_UPDATE_DATA_DIR="/tmp/ignored-by-custom-files"

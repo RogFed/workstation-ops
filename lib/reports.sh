@@ -63,7 +63,7 @@ package_risk_metadata_json() {
     local pkg
     {
         for pkg in "${RISK_PACKAGES[@]}"; do
-            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
                 "$pkg" \
                 "${PACKAGE_SEVERITY[$pkg]:-LOW}" \
                 "${PACKAGE_REBOOT_REQUIRED[$pkg]:-false}" \
@@ -71,7 +71,11 @@ package_risk_metadata_json() {
                 "${PACKAGE_GRAPHICS_IMPACT[$pkg]:-false}" \
                 "${PACKAGE_CORE_SYSTEM_IMPACT[$pkg]:-false}" \
                 "${PACKAGE_USERLAND_ONLY[$pkg]:-false}" \
-                "${PACKAGE_AUR[$pkg]:-false}"
+                "${PACKAGE_AUR[$pkg]:-false}" \
+                "${PACKAGE_BASE_SEVERITY[$pkg]:-LOW}" \
+                "${PACKAGE_ADVISORY_MATCH_COUNT[$pkg]:-0}" \
+                "${PACKAGE_ESCALATED_BY_ADVISORY[$pkg]:-false}" \
+                "${PACKAGE_MANUAL_INTERVENTION_REQUIRED[$pkg]:-false}"
         done
     } | jq -Rsc '
         split("\n")[:-1]
@@ -79,16 +83,39 @@ package_risk_metadata_json() {
         | map({
             name: .[0],
             severity: .[1],
+            base_severity: .[8],
             reboot_required: (.[2] == "true"),
             boot_impact: (.[3] == "true"),
             graphics_impact: (.[4] == "true"),
             core_system_impact: (.[5] == "true"),
             userland_only: (.[6] == "true"),
-            aur_package: (.[7] == "true")
+            aur_package: (.[7] == "true"),
+            advisory_match_count: (.[9] | tonumber),
+            escalated_by_advisory: (.[10] == "true"),
+            manual_intervention_required: (.[11] == "true")
         })'
 }
 
+advisories_json() {
+    printf '%s\n' "${RELEVANT_ADVISORIES_JSON:-[]}"
+}
+
+escalated_packages_json() {
+    printf '%s\n' "${ESCALATED_PACKAGES_JSON:-[]}"
+}
+
 risk_summary_json() {
+    local advisories_detected="false"
+    local advisory_count
+    local escalated_package_count
+
+    advisory_count=$(jq -r 'length' <<< "${RELEVANT_ADVISORIES_JSON:-[]}")
+    escalated_package_count=$(jq -r 'length' <<< "${ESCALATED_PACKAGES_JSON:-[]}")
+
+    if (( advisory_count > 0 )); then
+        advisories_detected="true"
+    fi
+
     jq -n \
         --argjson critical_package_count "${#CRITICAL_PACKAGES[@]}" \
         --argjson high_package_count "${#HIGH_PACKAGES[@]}" \
@@ -99,6 +126,10 @@ risk_summary_json() {
         --argjson core_system_changed "$(json_bool "${CORE_SYSTEM_CHANGED:-false}")" \
         --argjson reboot_required "$(json_bool "${REBOOT_REQUIRED:-false}")" \
         --argjson aur_package_count "${AUR_PACKAGE_COUNT:-0}" \
+        --argjson advisories_detected "$(json_bool "$advisories_detected")" \
+        --argjson manual_intervention_required "$(json_bool "${MANUAL_INTERVENTION_REQUIRED:-false}")" \
+        --argjson advisory_count "$advisory_count" \
+        --argjson escalated_package_count "$escalated_package_count" \
         '{
             critical_package_count: $critical_package_count,
             high_package_count: $high_package_count,
@@ -108,7 +139,11 @@ risk_summary_json() {
             boot_chain_changed: $boot_chain_changed,
             core_system_changed: $core_system_changed,
             reboot_required: $reboot_required,
-            aur_package_count: $aur_package_count
+            aur_package_count: $aur_package_count,
+            advisories_detected: $advisories_detected,
+            manual_intervention_required: $manual_intervention_required,
+            advisory_count: $advisory_count,
+            escalated_package_count: $escalated_package_count
         }'
 }
 
@@ -130,6 +165,8 @@ generate_report() {
     local snapshot_id_json
     local risk_summary
     local package_risk_metadata
+    local advisories
+    local escalated_packages
 
     if ! bool_is_true "$ENABLE_REPORTS"; then
         return 0
@@ -153,6 +190,8 @@ generate_report() {
     snapshot_id_json=$(json_string_or_null "${SNAPSHOT_ID:-}")
     risk_summary=$(risk_summary_json)
     package_risk_metadata=$(package_risk_metadata_json)
+    advisories=$(advisories_json)
+    escalated_packages=$(escalated_packages_json)
 
     jq -n \
         --arg version "$version" \
@@ -172,7 +211,10 @@ generate_report() {
         --argjson low_updates "$low_updates" \
         --argjson risk_summary "$risk_summary" \
         --argjson package_risk_metadata "$package_risk_metadata" \
+        --argjson advisories "$advisories" \
+        --argjson escalated_packages "$escalated_packages" \
         --argjson reboot_required "$(json_bool "$reboot_required")" \
+        --argjson manual_intervention_required "$(json_bool "${MANUAL_INTERVENTION_REQUIRED:-false}")" \
         --argjson arch_news_detected "$(json_bool "$ARCH_NEWS_DETECTED")" \
         --argjson cachyos_news_detected "$(json_bool "$CACHYOS_NEWS_DETECTED")" \
         --argjson duration_seconds "$duration_seconds" \
@@ -194,8 +236,11 @@ generate_report() {
                 low: $low_updates
             },
             package_risk_metadata: $package_risk_metadata,
+            advisories: $advisories,
+            escalated_packages: $escalated_packages,
             risk_summary: $risk_summary,
             reboot_required: $reboot_required,
+            manual_intervention_required: $manual_intervention_required,
             update_result: $update_result,
             duration_seconds: $duration_seconds,
             advisory_flags: {
@@ -241,12 +286,37 @@ validate_report() {
             (. | type == "object") and
             (.name | type == "string") and
             ((.severity == "CRITICAL") or (.severity == "HIGH") or (.severity == "MEDIUM") or (.severity == "LOW")) and
+            ((.base_severity == "CRITICAL") or (.base_severity == "HIGH") or (.base_severity == "MEDIUM") or (.base_severity == "LOW")) and
             (.reboot_required | type == "boolean") and
             (.boot_impact | type == "boolean") and
             (.graphics_impact | type == "boolean") and
             (.core_system_impact | type == "boolean") and
             (.userland_only | type == "boolean") and
-            (.aur_package | type == "boolean")
+            (.aur_package | type == "boolean") and
+            (.advisory_match_count | type == "number") and
+            (.escalated_by_advisory | type == "boolean") and
+            (.manual_intervention_required | type == "boolean")
+        )) and
+        (.advisories | type == "array") and
+        (all(.advisories[];
+            (.source | type == "string") and
+            (.title | type == "string") and
+            (.url | type == "string") and
+            (.published_at | type == "string") and
+            (.summary | type == "string") and
+            (.category | type == "string") and
+            ((.severity == "INFO") or (.severity == "LOW") or (.severity == "MEDIUM") or (.severity == "HIGH") or (.severity == "CRITICAL")) and
+            (.manual_intervention | type == "boolean") and
+            (.related_packages | type == "array") and
+            (.keywords | type == "array") and
+            (.matched_packages | type == "array")
+        )) and
+        (.escalated_packages | type == "array") and
+        (all(.escalated_packages[];
+            (.name | type == "string") and
+            ((.target_severity == "LOW") or (.target_severity == "MEDIUM") or (.target_severity == "HIGH") or (.target_severity == "CRITICAL")) and
+            (.advisory_title | type == "string") and
+            (.manual_intervention | type == "boolean")
         )) and
         (.risk_summary | type == "object") and
         (.risk_summary.critical_package_count | type == "number") and
@@ -258,7 +328,12 @@ validate_report() {
         (.risk_summary.core_system_changed | type == "boolean") and
         (.risk_summary.reboot_required | type == "boolean") and
         (.risk_summary.aur_package_count | type == "number") and
+        (.risk_summary.advisories_detected | type == "boolean") and
+        (.risk_summary.manual_intervention_required | type == "boolean") and
+        (.risk_summary.advisory_count | type == "number") and
+        (.risk_summary.escalated_package_count | type == "number") and
         (.reboot_required | type == "boolean") and
+        (.manual_intervention_required | type == "boolean") and
         (.update_result | type == "string") and
         (.duration_seconds | type == "number") and
         (.duration_seconds >= 0) and

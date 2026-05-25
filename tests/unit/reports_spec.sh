@@ -21,15 +21,18 @@ SAFE_UPDATE_NOW_EPOCH=148
 SAFE_UPDATE_HOSTNAME="cachyos-workstation"
 SAFE_UPDATE_KERNEL_VERSION="6.15.1-cachyos"
 SAFE_UPDATE_BOOTLOADER="limine"
-SAFE_UPDATE_VERSION="0.2.3"
+SAFE_UPDATE_VERSION="0.2.4"
 SNAPSHOT_ID="42"
+RELEVANT_ADVISORIES_JSON='[]'
+ESCALATED_PACKAGES_JSON='[]'
+MANUAL_INTERVENTION_REQUIRED="false"
 TEST_UPDATES=$'linux-cachyos 1 -> 2\nmesa 1 -> 2\nplasma-desktop 1 -> 2\nwarp-terminal-bin 1 -> 2'
 
 analyze_updates "$TEST_UPDATES"
 
 write_report "success" "pre-update-2026-05-22T211500" "true" "true"
 
-assert_json_expression "$REPORT_FILE" '.version == "0.2.3"'
+assert_json_expression "$REPORT_FILE" '.version == "0.2.4"'
 assert_json_expression "$REPORT_FILE" '.timestamp == "2026-05-22T21:15:00-06:00"'
 assert_json_expression "$REPORT_FILE" '.hostname == "cachyos-workstation"'
 assert_json_expression "$REPORT_FILE" '.kernel_version == "6.15.1-cachyos"'
@@ -48,8 +51,9 @@ PACKAGE_METADATA_FILE="$TEST_DIR/package-risk-metadata.json"
 package_risk_metadata_json > "$PACKAGE_METADATA_FILE"
 assert_json_expression "$PACKAGE_METADATA_FILE" '.[0].name == "linux-cachyos"'
 assert_json_expression "$PACKAGE_METADATA_FILE" '.[0].severity == "CRITICAL"'
+assert_json_expression "$PACKAGE_METADATA_FILE" '.[0].base_severity == "CRITICAL"'
 assert_json_expression "$PACKAGE_METADATA_FILE" '.[1].name == "mesa"'
-assert_json_expression "$PACKAGE_METADATA_FILE" 'all(.[]; has("name") and has("severity") and has("reboot_required") and has("boot_impact") and has("graphics_impact") and has("core_system_impact") and has("userland_only") and has("aur_package"))'
+assert_json_expression "$PACKAGE_METADATA_FILE" 'all(.[]; has("name") and has("severity") and has("base_severity") and has("reboot_required") and has("boot_impact") and has("graphics_impact") and has("core_system_impact") and has("userland_only") and has("aur_package") and has("advisory_match_count") and has("escalated_by_advisory") and has("manual_intervention_required"))'
 assert_json_expression "$REPORT_FILE" '.risk_summary.critical_package_count == 1'
 assert_json_expression "$REPORT_FILE" '.risk_summary.high_package_count == 1'
 assert_json_expression "$REPORT_FILE" '.risk_summary.medium_package_count == 1'
@@ -58,8 +62,11 @@ assert_json_expression "$REPORT_FILE" '.risk_summary.graphics_stack_changed == t
 assert_json_expression "$REPORT_FILE" '.risk_summary.boot_chain_changed == true'
 assert_json_expression "$REPORT_FILE" '.risk_summary.core_system_changed == true'
 assert_json_expression "$REPORT_FILE" '.risk_summary.aur_package_count == 1'
+assert_json_expression "$REPORT_FILE" '.risk_summary.advisories_detected == false and .risk_summary.manual_intervention_required == false and .risk_summary.advisory_count == 0 and .risk_summary.escalated_package_count == 0'
+assert_json_expression "$REPORT_FILE" '.advisories == [] and .escalated_packages == []'
 assert_json_expression "$REPORT_FILE" '.risk_summary.reboot_required == true'
 assert_json_expression "$REPORT_FILE" '.reboot_required == true'
+assert_json_expression "$REPORT_FILE" '.manual_intervention_required == false'
 assert_json_expression "$REPORT_FILE" '.update_result == "success"'
 assert_json_expression "$REPORT_FILE" '.duration_seconds == 48'
 assert_json_expression "$REPORT_FILE" '.advisory_flags.arch_news_detected == true'
@@ -75,7 +82,7 @@ set -e
 assert_eq "1" "$invalid_status" "validate_report should reject incomplete reports"
 
 jq -n '{
-  version: "0.2.3",
+  version: "0.2.4",
   timestamp: "2026-05-22T21:15:00-06:00",
   hostname: "cachyos-workstation",
   kernel_version: "6.15.1-cachyos",
@@ -83,14 +90,21 @@ jq -n '{
   snapshot: { created: true, name: "pre-update-2026-05-22T211500", id: "42" },
   updates: { critical: ["linux-cachyos"], high: ["mesa"], medium: ["plasma-desktop"], low: ["warp-terminal-bin"] },
   package_risk_metadata: [{
+    name: "linux-cachyos",
     severity: "SEVERE",
+    base_severity: "CRITICAL",
     reboot_required: true,
     boot_impact: true,
     graphics_impact: false,
     core_system_impact: true,
     userland_only: false,
-    aur_package: false
+    aur_package: false,
+    advisory_match_count: 0,
+    escalated_by_advisory: false,
+    manual_intervention_required: false
   }],
+  advisories: [],
+  escalated_packages: [],
   risk_summary: {
     critical_package_count: 1,
     high_package_count: 1,
@@ -100,9 +114,14 @@ jq -n '{
     boot_chain_changed: true,
     core_system_changed: true,
     reboot_required: true,
-    aur_package_count: 1
+    aur_package_count: 1,
+    advisories_detected: false,
+    manual_intervention_required: false,
+    advisory_count: 0,
+    escalated_package_count: 0
   },
   reboot_required: true,
+  manual_intervention_required: false,
   update_result: "success",
   duration_seconds: 48,
   advisory_flags: { arch_news_detected: true, cachyos_news_detected: false },

@@ -6,7 +6,7 @@ A collection of system administration scripts and utilities designed to keep an 
 
 ## 🛠️ safe-update
 
-`safe-update` is a Bash-based update orchestrator for Arch Linux and CachyOS systems using **Btrfs** and **Snapper**. It keeps the original rollback-first workflow while adding a modular architecture, runtime configuration, structured reporting, and multidimensional operational risk analysis.
+`safe-update` is a Bash-based update orchestrator for Arch Linux and CachyOS systems using **Btrfs** and **Snapper**. It keeps the original rollback-first workflow while adding a modular architecture, runtime configuration, structured reporting, multidimensional operational risk analysis, and ecosystem advisory correlation.
 
 ### Core Features
 
@@ -18,10 +18,12 @@ A collection of system administration scripts and utilities designed to keep an 
    A pre-update Btrfs snapshot is created with `snapper` before upgrades run.
 4. **Human confirmation gates**  
    Critical updates still require explicit confirmation before the script proceeds.
-5. **Structured observability**  
+5. **Ecosystem advisory intelligence**  
+   Arch Linux news and CachyOS release advisories are fetched, normalized, cached, and correlated against pending packages before execution.
+6. **Structured observability**  
    Each run produces both a human-readable log and a JSON report for future automation, dashboards, or advisory correlation.
-6. **Advisory groundwork**  
-   Runtime flags and report fields are in place for future Arch Linux and CachyOS news/advisory integration without introducing opaque autonomous decisions.
+7. **Manual intervention gates**  
+   When an advisory indicates manual review is needed, `safe-update` requires explicit confirmation before continuing.
 
 ---
 
@@ -34,6 +36,7 @@ To use `safe-update`, your system must have:
 * **Paru** installed as the AUR helper for `paru -Syu`
 * **Btrfs** with **Snapper** configured
 * **libnotify** (providing `notify-send`) for desktop alerts
+* **curl** for Arch Linux and CachyOS advisory retrieval when advisory intelligence is enabled
 * **jq** for structured report generation and validation; when `ENABLE_REPORTS=true` (the default), `safe-update` fails fast if `jq` is unavailable
 
 ---
@@ -45,6 +48,9 @@ workstation-ops/
 ├── config/
 │   └── safe-update.conf
 ├── lib/
+│   ├── advisory.sh
+│   ├── archnews.sh
+│   ├── cachyos.sh
 │   ├── config.sh
 │   ├── logging.sh
 │   ├── notifications.sh
@@ -99,6 +105,10 @@ ENABLE_NOTIFICATIONS=true
 ENABLE_ARCH_NEWS=true
 ENABLE_CACHYOS_NEWS=true
 ENABLE_REPORTS=true
+ARCH_NEWS_URL="https://archlinux.org/feeds/news/"
+CACHYOS_NEWS_URL="https://cachyos.org/blog/"
+ADVISORY_CACHE_TTL_SECONDS=21600
+ADVISORY_MAX_ITEMS=12
 TIMELINE_RETENTION=6
 UPDATE_SNAPSHOT_RETENTION=5
 ```
@@ -149,6 +159,7 @@ Key outputs:
 
 * **Logs**: `~/.local/share/safe-update/logs/update-YYYY-MM-DDTHHMMSS.log`
 * **Reports**: `~/.local/share/safe-update/reports/report-YYYY-MM-DDTHHMMSS.json` (with an automatic suffix only if a same-second collision occurs)
+* **Advisory cache**: `~/.local/share/safe-update/cache/{archlinux,cachyos}-news.json`
 * **Snapshots**: `pre-update-YYYY-MM-DDTHHMMSS`
 
 ## 📊 Structured Report Schema
@@ -164,11 +175,13 @@ Current report fields include:
 * `bootloader`
 * `snapshot.created`, `snapshot.name`, `snapshot.id` (optional; `null` when Snapper does not expose a parsable snapshot ID)
 * `updates.critical`, `updates.high`, `updates.medium`, `updates.low`
-* `package_risk_metadata[]` objects with `name`, `severity`, `reboot_required`, `boot_impact`, `graphics_impact`, `core_system_impact`, `userland_only`, and `aur_package`
+* `package_risk_metadata[]` objects with `name`, `severity`, `base_severity`, `reboot_required`, `boot_impact`, `graphics_impact`, `core_system_impact`, `userland_only`, `aur_package`, `advisory_match_count`, `escalated_by_advisory`, and `manual_intervention_required`
+* `advisories[]` objects with `source`, `title`, `url`, `published_at`, `summary`, `category`, `severity`, `manual_intervention`, `related_packages`, `keywords`, and `matched_packages`
+* `escalated_packages[]` objects with `name`, `target_severity`, `advisory_title`, and `manual_intervention`
 * `risk_summary.critical_package_count`, `risk_summary.high_package_count`, `risk_summary.medium_package_count`, `risk_summary.low_package_count`
 * `risk_summary.graphics_stack_changed`, `risk_summary.boot_chain_changed`, `risk_summary.core_system_changed`
-* `risk_summary.reboot_required`, `risk_summary.aur_package_count`
-* `reboot_required`
+* `risk_summary.reboot_required`, `risk_summary.aur_package_count`, `risk_summary.advisories_detected`, `risk_summary.manual_intervention_required`, `risk_summary.advisory_count`, `risk_summary.escalated_package_count`
+* `reboot_required`, `manual_intervention_required`
 * `update_result`
 * `duration_seconds`
 * `advisory_flags.arch_news_detected`, `advisory_flags.cachyos_news_detected`
