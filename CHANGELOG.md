@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.4
+
+- Added advisory intelligence that correlates Arch Linux news and CachyOS release posts with pending updates before execution
+- Introduced advisory feed caching, configurable advisory sources, and a manual-intervention review gate for risky ecosystem notices
+- Extended structured reports with advisory details, advisory-driven package escalation metadata, and richer risk summary counters
+
 ## v0.2.2
 
 - Expanded the risk engine from simple string matching into multidimensional metadata for reboot, boot-chain, graphics-stack, core-system, and AUR-aware package impact

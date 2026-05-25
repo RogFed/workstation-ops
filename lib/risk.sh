@@ -22,12 +22,16 @@ declare -ag CORE_SYSTEM_PACKAGES=()
 declare -ag USERLAND_PACKAGES=()
 declare -ag AUR_PACKAGES=()
 declare -Ag PACKAGE_SEVERITY=()
+declare -Ag PACKAGE_BASE_SEVERITY=()
 declare -Ag PACKAGE_REBOOT_REQUIRED=()
 declare -Ag PACKAGE_BOOT_IMPACT=()
 declare -Ag PACKAGE_GRAPHICS_IMPACT=()
 declare -Ag PACKAGE_CORE_SYSTEM_IMPACT=()
 declare -Ag PACKAGE_USERLAND_ONLY=()
 declare -Ag PACKAGE_AUR=()
+declare -Ag PACKAGE_ADVISORY_MATCH_COUNT=()
+declare -Ag PACKAGE_ESCALATED_BY_ADVISORY=()
+declare -Ag PACKAGE_MANUAL_INTERVENTION_REQUIRED=()
 REBOOT_REQUIRED="false"
 BOOT_CHAIN_CHANGED="false"
 GRAPHICS_STACK_CHANGED="false"
@@ -47,12 +51,16 @@ reset_risk_state() {
     USERLAND_PACKAGES=()
     AUR_PACKAGES=()
     PACKAGE_SEVERITY=()
+    PACKAGE_BASE_SEVERITY=()
     PACKAGE_REBOOT_REQUIRED=()
     PACKAGE_BOOT_IMPACT=()
     PACKAGE_GRAPHICS_IMPACT=()
     PACKAGE_CORE_SYSTEM_IMPACT=()
     PACKAGE_USERLAND_ONLY=()
     PACKAGE_AUR=()
+    PACKAGE_ADVISORY_MATCH_COUNT=()
+    PACKAGE_ESCALATED_BY_ADVISORY=()
+    PACKAGE_MANUAL_INTERVENTION_REQUIRED=()
     REBOOT_REQUIRED="false"
     BOOT_CHAIN_CHANGED="false"
     GRAPHICS_STACK_CHANGED="false"
@@ -213,6 +221,9 @@ format_risk_summary_line() {
     local core_system_impact="$6"
     local aur_package="$7"
     local details=()
+    local advisory_match_count="${PACKAGE_ADVISORY_MATCH_COUNT[$pkg]:-0}"
+    local escalated_by_advisory="${PACKAGE_ESCALATED_BY_ADVISORY[$pkg]:-false}"
+    local manual_intervention_required="${PACKAGE_MANUAL_INTERVENTION_REQUIRED[$pkg]:-false}"
 
     if bool_is_true "$reboot_required"; then
         details+=("reboot")
@@ -228,6 +239,15 @@ format_risk_summary_line() {
     fi
     if bool_is_true "$aur_package"; then
         details+=("aur")
+    fi
+    if (( advisory_match_count > 0 )); then
+        details+=("advisory")
+    fi
+    if bool_is_true "$escalated_by_advisory"; then
+        details+=("escalated")
+    fi
+    if bool_is_true "$manual_intervention_required"; then
+        details+=("manual-intervention")
     fi
 
     if [[ "${#details[@]}" -eq 0 ]]; then
@@ -252,51 +272,114 @@ track_package_risk() {
 
     RISK_PACKAGES+=("$pkg")
     PACKAGE_SEVERITY["$pkg"]="$severity"
+    PACKAGE_BASE_SEVERITY["$pkg"]="$severity"
     PACKAGE_REBOOT_REQUIRED["$pkg"]="$reboot_required"
     PACKAGE_BOOT_IMPACT["$pkg"]="$boot_impact"
     PACKAGE_GRAPHICS_IMPACT["$pkg"]="$graphics_impact"
     PACKAGE_CORE_SYSTEM_IMPACT["$pkg"]="$core_system_impact"
     PACKAGE_USERLAND_ONLY["$pkg"]="$userland_only"
     PACKAGE_AUR["$pkg"]="$aur_package"
-    RISK_SUMMARY_LINES+=("$(format_risk_summary_line "$pkg" "$severity" "$reboot_required" "$boot_impact" "$graphics_impact" "$core_system_impact" "$aur_package")")
+    PACKAGE_ADVISORY_MATCH_COUNT["$pkg"]=0
+    PACKAGE_ESCALATED_BY_ADVISORY["$pkg"]="false"
+    PACKAGE_MANUAL_INTERVENTION_REQUIRED["$pkg"]="false"
+}
 
-    case "$severity" in
+severity_rank() {
+    case "$1" in
         CRITICAL)
-            CRITICAL_PACKAGES+=("$pkg")
+            printf '4\n'
             ;;
         HIGH)
-            HIGH_PACKAGES+=("$pkg")
+            printf '3\n'
             ;;
         MEDIUM)
-            MEDIUM_PACKAGES+=("$pkg")
+            printf '2\n'
             ;;
         *)
-            LOW_PACKAGES+=("$pkg")
+            printf '1\n'
             ;;
     esac
+}
 
-    if bool_is_true "$reboot_required"; then
-        REBOOT_REQUIRED="true"
-    fi
-    if bool_is_true "$boot_impact"; then
-        BOOT_IMPACT_PACKAGES+=("$pkg")
-        BOOT_CHAIN_CHANGED="true"
-    fi
-    if bool_is_true "$graphics_impact"; then
-        GRAPHICS_IMPACT_PACKAGES+=("$pkg")
-        GRAPHICS_STACK_CHANGED="true"
-    fi
-    if bool_is_true "$core_system_impact"; then
-        CORE_SYSTEM_PACKAGES+=("$pkg")
-        CORE_SYSTEM_CHANGED="true"
-    fi
-    if bool_is_true "$userland_only"; then
-        USERLAND_PACKAGES+=("$pkg")
-    fi
-    if bool_is_true "$aur_package"; then
-        AUR_PACKAGES+=("$pkg")
-        AUR_PACKAGE_COUNT=$((AUR_PACKAGE_COUNT + 1))
-    fi
+reset_risk_indexes() {
+    CRITICAL_PACKAGES=()
+    HIGH_PACKAGES=()
+    MEDIUM_PACKAGES=()
+    LOW_PACKAGES=()
+    RISK_SUMMARY_LINES=()
+    BOOT_IMPACT_PACKAGES=()
+    GRAPHICS_IMPACT_PACKAGES=()
+    CORE_SYSTEM_PACKAGES=()
+    USERLAND_PACKAGES=()
+    AUR_PACKAGES=()
+    REBOOT_REQUIRED="false"
+    BOOT_CHAIN_CHANGED="false"
+    GRAPHICS_STACK_CHANGED="false"
+    CORE_SYSTEM_CHANGED="false"
+    AUR_PACKAGE_COUNT=0
+}
+
+rebuild_risk_indexes() {
+    local pkg
+    local severity
+    local reboot_required
+    local boot_impact
+    local graphics_impact
+    local core_system_impact
+    local userland_only
+    local aur_package
+
+    reset_risk_indexes
+
+    for pkg in "${RISK_PACKAGES[@]}"; do
+        severity="${PACKAGE_SEVERITY[$pkg]:-LOW}"
+        reboot_required="${PACKAGE_REBOOT_REQUIRED[$pkg]:-false}"
+        boot_impact="${PACKAGE_BOOT_IMPACT[$pkg]:-false}"
+        graphics_impact="${PACKAGE_GRAPHICS_IMPACT[$pkg]:-false}"
+        core_system_impact="${PACKAGE_CORE_SYSTEM_IMPACT[$pkg]:-false}"
+        userland_only="${PACKAGE_USERLAND_ONLY[$pkg]:-false}"
+        aur_package="${PACKAGE_AUR[$pkg]:-false}"
+
+        RISK_SUMMARY_LINES+=("$(format_risk_summary_line "$pkg" "$severity" "$reboot_required" "$boot_impact" "$graphics_impact" "$core_system_impact" "$aur_package")")
+
+        case "$severity" in
+            CRITICAL)
+                CRITICAL_PACKAGES+=("$pkg")
+                ;;
+            HIGH)
+                HIGH_PACKAGES+=("$pkg")
+                ;;
+            MEDIUM)
+                MEDIUM_PACKAGES+=("$pkg")
+                ;;
+            *)
+                LOW_PACKAGES+=("$pkg")
+                ;;
+        esac
+
+        if bool_is_true "$reboot_required"; then
+            REBOOT_REQUIRED="true"
+        fi
+        if bool_is_true "$boot_impact"; then
+            BOOT_IMPACT_PACKAGES+=("$pkg")
+            BOOT_CHAIN_CHANGED="true"
+        fi
+        if bool_is_true "$graphics_impact"; then
+            GRAPHICS_IMPACT_PACKAGES+=("$pkg")
+            GRAPHICS_STACK_CHANGED="true"
+        fi
+        if bool_is_true "$core_system_impact"; then
+            CORE_SYSTEM_PACKAGES+=("$pkg")
+            CORE_SYSTEM_CHANGED="true"
+        fi
+        if bool_is_true "$userland_only"; then
+            USERLAND_PACKAGES+=("$pkg")
+        fi
+        if bool_is_true "$aur_package"; then
+            AUR_PACKAGES+=("$pkg")
+            AUR_PACKAGE_COUNT=$((AUR_PACKAGE_COUNT + 1))
+        fi
+    done
 }
 
 analyze_updates() {
@@ -314,6 +397,8 @@ analyze_updates() {
         metadata=$(build_risk_metadata "$pkg")
         track_package_risk "$metadata"
     done <<< "$updates"
+
+    rebuild_risk_indexes
 }
 
 updates_require_reboot() {
@@ -374,4 +459,36 @@ risk_bucket_has_entries() {
             return 1
             ;;
     esac
+}
+
+promote_package_severity() {
+    local pkg="$1"
+    local requested_severity="$2"
+    local manual_intervention_required="${3:-false}"
+    local current_severity="${PACKAGE_SEVERITY[$pkg]:-LOW}"
+    local current_rank
+    local requested_rank
+
+    current_rank=$(severity_rank "$current_severity")
+    requested_rank=$(severity_rank "$requested_severity")
+
+    if (( requested_rank > current_rank )); then
+        PACKAGE_SEVERITY["$pkg"]="$requested_severity"
+        PACKAGE_ESCALATED_BY_ADVISORY["$pkg"]="true"
+        PACKAGE_ADVISORY_MATCH_COUNT["$pkg"]=$(( ${PACKAGE_ADVISORY_MATCH_COUNT[$pkg]:-0} + 1 ))
+
+        if bool_is_true "$manual_intervention_required"; then
+            PACKAGE_MANUAL_INTERVENTION_REQUIRED["$pkg"]="true"
+        fi
+
+        return 0
+    fi
+
+    PACKAGE_ADVISORY_MATCH_COUNT["$pkg"]=$(( ${PACKAGE_ADVISORY_MATCH_COUNT[$pkg]:-0} + 1 ))
+
+    if bool_is_true "$manual_intervention_required"; then
+        PACKAGE_MANUAL_INTERVENTION_REQUIRED["$pkg"]="true"
+    fi
+
+    return 1
 }

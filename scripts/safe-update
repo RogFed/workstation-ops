@@ -25,6 +25,9 @@ source "$REPO_ROOT/lib/logging.sh"
 source "$REPO_ROOT/lib/notifications.sh"
 source "$REPO_ROOT/lib/snapshots.sh"
 source "$REPO_ROOT/lib/risk.sh"
+source "$REPO_ROOT/lib/archnews.sh"
+source "$REPO_ROOT/lib/cachyos.sh"
+source "$REPO_ROOT/lib/advisory.sh"
 source "$REPO_ROOT/lib/reports.sh"
 
 safe_write_report() {
@@ -42,6 +45,7 @@ main() {
     init_logging
     RUN_START_EPOCH="${SAFE_UPDATE_START_EPOCH:-$(current_epoch)}"
     reset_snapshot_state
+    reset_advisory_state
 
     section "Safe Update Started"
 
@@ -65,6 +69,32 @@ main() {
     section "Risk Analysis"
     analyze_updates "$updates"
     print_risk_summary
+
+    section "Advisory Intelligence"
+    collect_advisories
+    build_advisory_summary
+
+    if [[ "$RELEVANT_ADVISORY_COUNT" -gt 0 ]]; then
+        warn "Ecosystem advisories correlate with pending updates."
+        notify_if_enabled "safe-update" "Relevant ecosystem advisories detected"
+    fi
+
+    if bool_is_true "$MANUAL_INTERVENTION_REQUIRED"; then
+        warn "Manual intervention may be required before updating."
+        notify_if_enabled "safe-update" "Manual intervention advisories detected"
+        echo
+        if ! read -rp "Manual intervention advisories detected. Continue after review? [y/N]: " MANUAL_CONFIRM; then
+            error "Manual intervention confirmation failed. Run safe-update from an interactive terminal."
+            safe_write_report "advisory-prompt-failed" "" "false" "$REBOOT_REQUIRED"
+            exit 1
+        fi
+
+        if ! is_yes "$MANUAL_CONFIRM"; then
+            log "Update cancelled after advisory review gate."
+            safe_write_report "manual-intervention-declined" "" "false" "$REBOOT_REQUIRED"
+            exit 0
+        fi
+    fi
 
     if risk_bucket_has_entries "CRITICAL"; then
         warn "Critical system updates detected."
@@ -164,8 +194,12 @@ verify_update_detection_prereqs() {
         log "Notification support unavailable: $NOTIFY_SEND_BIN not found"
     fi
 
-    if bool_is_true "$ENABLE_REPORTS" && ! have_command jq; then
-        error "Missing required command for structured reports: jq"
+    if (bool_is_true "$ENABLE_ARCH_NEWS" || bool_is_true "$ENABLE_CACHYOS_NEWS") && ! have_command "$CURL_BIN"; then
+        log "Advisory fetch unavailable: $CURL_BIN not found"
+    fi
+
+    if (bool_is_true "$ENABLE_REPORTS" || bool_is_true "$ENABLE_ARCH_NEWS" || bool_is_true "$ENABLE_CACHYOS_NEWS") && ! have_command jq; then
+        error "Missing required command for advisory/report processing: jq"
         exit 1
     fi
 }

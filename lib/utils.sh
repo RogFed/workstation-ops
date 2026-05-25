@@ -165,3 +165,33 @@ join_by() {
         printf '%s%s' "$separator" "$value"
     done
 }
+
+trim_whitespace() {
+    local value="${1:-}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+
+normalize_whitespace() {
+    local value="${1:-}"
+    value=${value//$'\r'/ }
+    value=${value//$'\n'/ }
+    value=$(printf '%s' "$value" | tr -s '[:space:]' ' ')
+    trim_whitespace "$value"
+}
+
+lowercase() {
+    printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]'
+}
+
+html_entity_decode() {
+    local value="${1:-}"
+    value="${value//&amp;/\&}"
+    value="${value//&lt;/<}"
+    value="${value//&gt;/>}"
+    value="${value//&quot;/\"}"
+    value="${value//&#39;/\'}"
+    value="${value//&apos;/\'}"
+    printf '%s' "$value"
+}
